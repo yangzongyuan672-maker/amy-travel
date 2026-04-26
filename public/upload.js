@@ -4,12 +4,13 @@ const yearInput = document.querySelector("#tripYearInput");
 const introInput = document.querySelector("#tripIntro");
 const photoInput = document.querySelector("#photoInput");
 const saveButton = document.querySelector("#saveButton");
-const clearButton = document.querySelector("#clearButton");
 const statusText = document.querySelector("#status");
+const albumList = document.querySelector("#albumList");
 
 passwordInput.value = localStorage.getItem("amyTravelPassword") || "";
+yearInput.value = new Date().getFullYear().toString();
 
-loadTrip();
+loadLibrary();
 
 saveButton.addEventListener("click", async () => {
   const password = passwordInput.value.trim();
@@ -20,13 +21,13 @@ saveButton.addEventListener("click", async () => {
 
   localStorage.setItem("amyTravelPassword", password);
   const formData = new FormData();
-  formData.append("title", titleInput.value.trim() || "Amy Travel");
+  formData.append("title", titleInput.value.trim() || "Untitled Trip");
   formData.append("year", yearInput.value.trim() || new Date().getFullYear().toString());
   formData.append("intro", introInput.value.trim());
   Array.from(photoInput.files || []).forEach((file) => formData.append("photos", file));
 
   saveButton.disabled = true;
-  setStatus("正在保存。若配置了 OpenAI API，会同时润色介绍...");
+  setStatus("正在创建新专辑。照片会自动压缩，介绍会自动润色...");
 
   try {
     const response = await fetch("/api/admin/trip", {
@@ -39,9 +40,12 @@ saveButton.addEventListener("click", async () => {
     const result = await response.json();
     if (!response.ok || !result.ok) throw new Error(result.error || "保存失败");
 
+    titleInput.value = "";
+    introInput.value = "";
     photoInput.value = "";
-    renderForm(result.trip);
-    setStatus("已保存。可以返回 Amy Travel 查看更新后的页面。");
+    yearInput.value = new Date().getFullYear().toString();
+    renderLibrary(result.library);
+    setStatus("新专辑已保存。可以返回 Amy Travel 查看。");
   } catch (error) {
     setStatus(error.message || "保存失败，请稍后再试。", true);
   } finally {
@@ -49,49 +53,81 @@ saveButton.addEventListener("click", async () => {
   }
 });
 
-clearButton.addEventListener("click", async () => {
+albumList.addEventListener("click", async (event) => {
+  const deleteAlbum = event.target.closest("[data-delete-album]");
+  const deletePhoto = event.target.closest("[data-delete-photo]");
+  if (!deleteAlbum && !deletePhoto) return;
+
   const password = passwordInput.value.trim();
   if (!password) {
     setStatus("请先输入管理密码。", true);
     return;
   }
 
-  const ok = confirm("确定清空当前旅行照片吗？标题和介绍会保留。");
+  const isAlbum = Boolean(deleteAlbum);
+  const id = isAlbum ? deleteAlbum.dataset.deleteAlbum : deletePhoto.dataset.deletePhoto;
+  const ok = confirm(isAlbum ? "确定删除整个专辑吗？" : "确定删除这张照片吗？");
   if (!ok) return;
 
   try {
-    const response = await fetch("/api/admin/clear-photos", {
-      method: "POST",
+    const response = await fetch(isAlbum ? `/api/admin/albums/${id}` : `/api/admin/photos/${id}`, {
+      method: "DELETE",
       headers: {
         "x-admin-password": password
       }
     });
     const result = await response.json();
-    if (!response.ok || !result.ok) throw new Error(result.error || "清空失败");
-    renderForm(result.trip);
-    setStatus("照片已清空。");
+    if (!response.ok || !result.ok) throw new Error(result.error || "删除失败");
+    renderLibrary(result.library);
+    setStatus(isAlbum ? "专辑已删除。" : "照片已删除。");
   } catch (error) {
-    setStatus(error.message || "清空失败。", true);
+    setStatus(error.message || "删除失败。", true);
   }
 });
 
-async function loadTrip() {
+async function loadLibrary() {
   try {
-    const response = await fetch("/api/trip");
+    const response = await fetch("/api/albums");
     if (!response.ok) return;
-    renderForm(await response.json());
+    renderLibrary(await response.json());
   } catch {
-    setStatus("当前是本地静态预览，部署到 Railway 后可以保存。", true);
+    setStatus("当前无法读取专辑列表，请检查部署状态。", true);
   }
 }
 
-function renderForm(trip) {
-  titleInput.value = trip.title || "";
-  yearInput.value = trip.year || "";
-  introInput.value = trip.originalIntro || trip.intro || "";
+function renderLibrary(library) {
+  const albums = [...(library.albums || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  albumList.innerHTML = albums.map((album) => `
+    <article class="manage-album">
+      <div class="manage-album-head">
+        <div>
+          <p>${escapeHtml(album.year || "")}</p>
+          <h2>${escapeHtml(album.title || "Untitled Trip")}</h2>
+          <span>${album.photos?.length || 0} photographs</span>
+        </div>
+        ${album.isSample ? "" : `<button type="button" data-delete-album="${escapeHtml(album.id)}">删除专辑</button>`}
+      </div>
+      <div class="manage-photos">
+        ${(album.photos || []).map((photo, index) => `
+          <figure>
+            <img src="${photo.src}" alt="照片 ${index + 1}">
+            ${album.isSample ? "" : `<button type="button" data-delete-photo="${escapeHtml(photo.id)}">删除</button>`}
+          </figure>
+        `).join("")}
+      </div>
+    </article>
+  `).join("");
 }
 
 function setStatus(message, isError = false) {
   statusText.textContent = message;
   statusText.classList.toggle("error", isError);
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

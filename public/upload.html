@@ -11,8 +11,8 @@
       <a class="back-link" href="index.html">返回 Amy Travel</a>
       <section class="upload-hero">
         <p class="kicker">Local Upload</p>
-        <h1>上传本次旅行照片</h1>
-        <p>这里先做成本地版本：照片会保存在当前浏览器里，刷新页面也还在。换电脑或清理浏览器数据后需要重新上传。</p>
+        <h1>创建新旅行专辑</h1>
+        <p>每次保存都会生成一个新专辑，旧专辑会保留。介绍可以写得简单，系统会润色成更像旅行影像集的文字。</p>
       </section>
 
       <section class="upload-panel">
@@ -46,7 +46,13 @@
           <button id="clearButton" type="button">清空本地照片</button>
         </div>
 
-        <p class="status" id="status">密码会保存在当前浏览器。介绍可以写得简单，配置 OpenAI API 后会自动润色。</p>
+        <p class="status" id="status">密码会保存在当前浏览器。照片会自动压缩成网页适合的尺寸。</p>
+      </section>
+
+      <section class="manage-section">
+        <p class="kicker">Manage</p>
+        <h2>已有专辑</h2>
+        <div id="albumList" class="album-list"></div>
       </section>
     </main>
 

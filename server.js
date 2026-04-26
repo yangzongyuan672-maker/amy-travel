@@ -14,21 +14,34 @@ const port = process.env.PORT || 3000;
 const dataDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, "data");
 const uploadDir = path.join(dataDir, "uploads");
 const tmpDir = path.join(dataDir, "tmp");
-const tripFile = path.join(dataDir, "trip.json");
+const libraryFile = path.join(dataDir, "travel.json");
+const legacyTripFile = path.join(dataDir, "trip.json");
 const adminPassword = process.env.ADMIN_PASSWORD || "amy-travel";
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
-const defaultTrip = {
-  title: "Amy Travel",
-  year: "2026",
-  intro: "A visual notebook for places, light, rooms, meals, roads, and quiet family moments.",
-  photos: [
-    { src: "/assets/photo-01.svg", caption: "示例照片 01" },
-    { src: "/assets/photo-02.svg", caption: "示例照片 02" },
-    { src: "/assets/photo-03.svg", caption: "示例照片 03" },
-    { src: "/assets/photo-04.svg", caption: "示例照片 04" },
-    { src: "/assets/photo-05.svg", caption: "示例照片 05" },
-    { src: "/assets/photo-06.svg", caption: "示例照片 06" }
+const samplePhotos = [
+  { src: "/assets/photo-01.svg", caption: "示例照片 01", orientation: "landscape" },
+  { src: "/assets/photo-02.svg", caption: "示例照片 02", orientation: "landscape" },
+  { src: "/assets/photo-03.svg", caption: "示例照片 03", orientation: "landscape" },
+  { src: "/assets/photo-04.svg", caption: "示例照片 04", orientation: "portrait" },
+  { src: "/assets/photo-05.svg", caption: "示例照片 05", orientation: "landscape" },
+  { src: "/assets/photo-06.svg", caption: "示例照片 06", orientation: "landscape" }
+];
+
+const defaultLibrary = {
+  siteTitle: "Amy Travel",
+  albums: [
+    {
+      id: "sample",
+      title: "Amy Travel",
+      year: "2026",
+      intro: "A visual notebook for places, light, rooms, meals, roads, and quiet family moments.",
+      originalIntro: "",
+      photos: samplePhotos,
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      isSample: true
+    }
   ]
 };
 
@@ -52,51 +65,96 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(uploadDir, { maxAge: "1h", etag: true }));
 
 app.get("/api/trip", async (_req, res) => {
-  res.json(await readTrip());
+  const library = await readLibrary();
+  res.json(latestAlbum(library));
+});
+
+app.get("/api/albums", async (_req, res) => {
+  res.json(await readLibrary());
 });
 
 app.post("/api/admin/trip", requireAdmin, upload.array("photos", 30), async (req, res) => {
-  const existing = await readTrip();
-  const rawTitle = clean(req.body.title) || existing.title || "Amy Travel";
-  const rawYear = clean(req.body.year) || existing.year || new Date().getFullYear().toString();
-  const rawIntro = clean(req.body.intro) || existing.intro || "";
+  const library = await readLibrary();
+  const rawTitle = clean(req.body.title) || "Untitled Trip";
+  const rawYear = clean(req.body.year) || new Date().getFullYear().toString();
+  const rawIntro = clean(req.body.intro) || "";
   const polishedIntro = await polishIntro(rawTitle, rawIntro);
-  let photos = [...(existing.photos || [])];
   const uploadedFiles = req.files || [];
-
-  if (uploadedFiles.length) {
-    photos = photos.filter((photo) => !String(photo.src || "").startsWith("/assets/"));
-  }
+  const photos = [];
 
   for (const file of uploadedFiles) {
     const filename = await nextFilename();
     const finalPath = path.join(uploadDir, filename);
-    await optimizeImage(file.path, finalPath);
+    const metadata = await optimizeImage(file.path, finalPath);
     await fs.unlink(file.path).catch(() => {});
     photos.push({
+      id: cryptoRandomId(),
       src: `/uploads/${filename}`,
-      caption: cleanCaption(file.originalname)
+      caption: `Frame ${String(photos.length + 1).padStart(2, "0")}`,
+      width: metadata.width,
+      height: metadata.height,
+      orientation: metadata.height > metadata.width ? "portrait" : "landscape"
     });
   }
 
-  const trip = {
+  const album = {
+    id: cryptoRandomId(),
     title: rawTitle,
     year: rawYear,
     intro: polishedIntro,
     originalIntro: rawIntro,
     photos,
+    createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
 
-  await writeTrip(trip);
-  res.json({ ok: true, trip });
+  const albums = [...(library.albums || []).filter((item) => !item.isSample), album];
+  const nextLibrary = { siteTitle: "Amy Travel", albums };
+  await writeLibrary(nextLibrary);
+  res.json({ ok: true, album, library: nextLibrary, trip: album });
 });
 
-app.post("/api/admin/clear-photos", requireAdmin, async (_req, res) => {
-  const trip = await readTrip();
-  trip.photos = [];
-  await writeTrip(trip);
-  res.json({ ok: true, trip });
+app.delete("/api/admin/albums/:albumId", requireAdmin, async (req, res) => {
+  const library = await readLibrary();
+  const album = (library.albums || []).find((item) => item.id === req.params.albumId);
+  if (!album) {
+    res.status(404).json({ ok: false, error: "Album not found." });
+    return;
+  }
+
+  for (const photo of album.photos || []) {
+    await deleteUploadedFile(photo.src);
+  }
+
+  const albums = (library.albums || []).filter((item) => item.id !== req.params.albumId);
+  const nextLibrary = { siteTitle: "Amy Travel", albums: albums.length ? albums : defaultLibrary.albums };
+  await writeLibrary(nextLibrary);
+  res.json({ ok: true, library: nextLibrary });
+});
+
+app.delete("/api/admin/photos/:photoId", requireAdmin, async (req, res) => {
+  const library = await readLibrary();
+  let removedPhoto = null;
+  const albums = (library.albums || []).map((album) => {
+    const photos = (album.photos || []).filter((photo) => {
+      if (photo.id === req.params.photoId) {
+        removedPhoto = photo;
+        return false;
+      }
+      return true;
+    });
+    return { ...album, photos, updatedAt: new Date().toISOString() };
+  });
+
+  if (!removedPhoto) {
+    res.status(404).json({ ok: false, error: "Photo not found." });
+    return;
+  }
+
+  await deleteUploadedFile(removedPhoto.src);
+  const nextLibrary = { siteTitle: "Amy Travel", albums };
+  await writeLibrary(nextLibrary);
+  res.json({ ok: true, library: nextLibrary });
 });
 
 app.get("*", (_req, res) => {
@@ -106,23 +164,57 @@ app.get("*", (_req, res) => {
 async function initStorage() {
   await fs.mkdir(uploadDir, { recursive: true });
   await fs.mkdir(tmpDir, { recursive: true });
-  if (!(await exists(tripFile))) {
-    await writeTrip(defaultTrip);
+  if (!(await exists(libraryFile))) {
+    const legacyTrip = await readJsonIfExists(legacyTripFile);
+    if (legacyTrip?.title || legacyTrip?.photos) {
+      await writeLibrary({
+        siteTitle: "Amy Travel",
+        albums: [
+          {
+            id: cryptoRandomId(),
+            title: legacyTrip.title || "Imported Trip",
+            year: legacyTrip.year || "2026",
+            intro: legacyTrip.intro || "",
+            originalIntro: legacyTrip.originalIntro || legacyTrip.intro || "",
+            photos: (legacyTrip.photos || []).map((photo, index) => ({
+              id: cryptoRandomId(),
+              caption: `Frame ${String(index + 1).padStart(2, "0")}`,
+              orientation: photo.orientation || "landscape",
+              ...photo
+            })),
+            createdAt: legacyTrip.updatedAt || new Date().toISOString(),
+            updatedAt: legacyTrip.updatedAt || new Date().toISOString()
+          }
+        ]
+      });
+    } else {
+      await writeLibrary(defaultLibrary);
+    }
   }
 }
 
-async function readTrip() {
+async function readLibrary() {
+  const library = await readJsonIfExists(libraryFile);
+  if (!library) return defaultLibrary;
+  const albums = Array.isArray(library.albums) ? library.albums : [];
+  return {
+    siteTitle: library.siteTitle || "Amy Travel",
+    albums: albums.length ? albums.map(normalizeAlbum) : defaultLibrary.albums
+  };
+}
+
+async function writeLibrary(library) {
+  await fs.mkdir(dataDir, { recursive: true });
+  await fs.writeFile(libraryFile, JSON.stringify(library, null, 2), "utf8");
+}
+
+async function readJsonIfExists(filePath) {
   try {
-    return { ...defaultTrip, ...JSON.parse(await fs.readFile(tripFile, "utf8")) };
+    return JSON.parse(await fs.readFile(filePath, "utf8"));
   } catch (error) {
-    if (error.code === "ENOENT") return defaultTrip;
+    if (error.code === "ENOENT") return null;
     throw error;
   }
-}
-
-async function writeTrip(trip) {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(tripFile, JSON.stringify(trip, null, 2), "utf8");
 }
 
 async function exists(filePath) {
@@ -156,7 +248,7 @@ async function nextFilename() {
 }
 
 async function optimizeImage(sourcePath, targetPath) {
-  await sharp(sourcePath)
+  const info = await sharp(sourcePath)
     .rotate()
     .resize({
       width: 2000,
@@ -169,6 +261,7 @@ async function optimizeImage(sourcePath, targetPath) {
       mozjpeg: true
     })
     .toFile(targetPath);
+  return info;
 }
 
 async function polishIntro(title, intro) {
@@ -180,7 +273,7 @@ async function polishIntro(title, intro) {
       messages: [
         {
           role: "system",
-          content: "你是一个高级旅行影像集编辑。请把用户朴素的中文旅行介绍润色成自然、克制、有画面感的中文，不要夸张，不要营销腔，不要超过90字。"
+          content: "你是一个高级旅行影像集编辑。请把用户朴素的中文旅行介绍润色成自然、克制、有画面感的中文。风格像私人影像集的前言：具体、温柔、不过度抒情，不要营销腔。保留真实信息，可以补一点节奏和画面。80到140字。"
         },
         {
           role: "user",
@@ -202,16 +295,47 @@ function clean(value) {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
 }
 
-function cleanCaption(originalName) {
-  return path.basename(originalName || "Photo", path.extname(originalName || "")).replace(/[-_]+/g, " ");
-}
-
 function formatFileDate(date) {
   return [
     date.getFullYear(),
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0")
   ].join("-");
+}
+
+function normalizeAlbum(album) {
+  return {
+    id: album.id || cryptoRandomId(),
+    title: album.title || "Untitled Trip",
+    year: album.year || "2026",
+    intro: album.intro || "",
+    originalIntro: album.originalIntro || album.intro || "",
+    photos: (album.photos || []).map((photo, index) => ({
+      id: photo.id || cryptoRandomId(),
+      src: photo.src,
+      caption: photo.caption?.startsWith("示例") ? photo.caption : `Frame ${String(index + 1).padStart(2, "0")}`,
+      width: photo.width || null,
+      height: photo.height || null,
+      orientation: photo.orientation || "landscape"
+    })).filter((photo) => photo.src),
+    createdAt: album.createdAt || new Date().toISOString(),
+    updatedAt: album.updatedAt || album.createdAt || new Date().toISOString(),
+    isSample: Boolean(album.isSample)
+  };
+}
+
+function latestAlbum(library) {
+  return [...(library.albums || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || defaultLibrary.albums[0];
+}
+
+async function deleteUploadedFile(src) {
+  if (!src || !src.startsWith("/uploads/")) return;
+  const filename = path.basename(src);
+  await fs.unlink(path.join(uploadDir, filename)).catch(() => {});
+}
+
+function cryptoRandomId() {
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 initStorage()
