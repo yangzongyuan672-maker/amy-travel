@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Amy Travel | 上传</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body class="upload-page">
+    <main class="upload-shell">
+      <a class="back-link" href="index.html">返回 Amy Travel</a>
+      <section class="upload-hero">
+        <p class="kicker">Local Upload</p>
+        <h1>上传本次旅行照片</h1>
+        <p>这里先做成本地版本：照片会保存在当前浏览器里，刷新页面也还在。换电脑或清理浏览器数据后需要重新上传。</p>
+      </section>
+
+      <section class="upload-panel">
+        <label class="wide">
+          管理密码
+          <input id="password" type="password" autocomplete="current-password" placeholder="输入 Railway 里设置的 ADMIN_PASSWORD">
+        </label>
+
+        <label>
+          本次旅行标题
+          <input id="tripTitle" type="text" placeholder="例如：温哥华周末">
+        </label>
+
+        <label>
+          年份
+          <input id="tripYearInput" type="text" placeholder="例如：2026">
+        </label>
+
+        <label class="wide">
+          本次旅行介绍
+          <textarea id="tripIntro" rows="5" placeholder="写一小段介绍，例如这次去了哪里、为什么喜欢、有什么值得记住。"></textarea>
+        </label>
+
+        <label class="wide">
+          选择照片
+          <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+        </label>
+
+        <div class="upload-actions">
+          <button id="saveButton" type="button">保存介绍和照片</button>
+          <button id="clearButton" type="button">清空本地照片</button>
+        </div>
+
+        <p class="status" id="status">密码会保存在当前浏览器。介绍可以写得简单，配置 OpenAI API 后会自动润色。</p>
+      </section>
+    </main>
+
+    <script src="upload.js"></script>
+  </body>
+</html>

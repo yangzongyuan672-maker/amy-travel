@@ -1,0 +1,31 @@
+{
+  "title": "Amy Travel",
+  "year": "2026",
+  "intro": "A visual notebook for places, light, rooms, meals, roads, and quiet family moments.",
+  "photos": [
+    {
+      "src": "/assets/photo-01.svg",
+      "caption": "示例照片 01"
+    },
+    {
+      "src": "/assets/photo-02.svg",
+      "caption": "示例照片 02"
+    },
+    {
+      "src": "/assets/photo-03.svg",
+      "caption": "示例照片 03"
+    },
+    {
+      "src": "/assets/photo-04.svg",
+      "caption": "示例照片 04"
+    },
+    {
+      "src": "/assets/photo-05.svg",
+      "caption": "示例照片 05"
+    },
+    {
+      "src": "/assets/photo-06.svg",
+      "caption": "示例照片 06"
+    }
+  ]
+}

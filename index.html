@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Amy Travel 启动说明</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #161614;
+        color: #fffaf0;
+        font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      }
+
+      main {
+        width: min(720px, calc(100% - 40px));
+      }
+
+      h1 {
+        margin: 0 0 18px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: clamp(3.8rem, 12vw, 8rem);
+        line-height: 0.86;
+        font-weight: 400;
+      }
+
+      p {
+        color: rgba(255, 250, 240, 0.72);
+        line-height: 1.75;
+      }
+
+      code {
+        background: rgba(255, 250, 240, 0.12);
+        padding: 2px 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Amy Travel</h1>
+      <p>这个版本已经升级为 Railway 可部署版本。部署到 Railway 后访问域名即可；上传入口是 <code>/upload.html</code>。</p>
+      <p>本地完整预览需要 Node.js：运行 <code>npm install</code> 和 <code>npm start</code>，然后打开 <code>http://localhost:3000</code>。</p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,32 @@
+Amy Travel Railway 部署步骤
+
+1. 在 GitHub 新建仓库，例如：
+amy-travel
+
+2. 上传整个“旅行日记”文件夹里的内容。
+
+3. Railway 里 New Project，选择 Deploy from GitHub repo。
+
+4. 选择 amy-travel 仓库。
+
+5. 在 Variables 里添加：
+ADMIN_PASSWORD=你自己的上传密码
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_API_KEY=你的 OpenAI API Key
+
+OPENAI_API_KEY 可以先不填。不填时，介绍会保存原文；填写后，上传时会自动润色介绍。
+
+6. 添加 Volume，挂载路径：
+/app/data
+
+这个很重要，用来长期保存上传照片和 trip.json。
+
+7. 在 Settings / Networking 里 Generate Domain。
+
+公开页面：
+https://你的域名/
+
+上传入口：
+https://你的域名/upload.html
+
+上传页输入 ADMIN_PASSWORD，填写标题、年份、简单介绍，选择照片，然后保存。

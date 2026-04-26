@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Amy Travel</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Amy Travel</a>
+      <nav>
+        <a href="#story">Story</a>
+        <a href="#photos">Photos</a>
+        <a href="upload.html">Upload</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="cover">
+        <div class="cover-image">
+          <img id="coverPhoto" src="assets/photo-01.svg" alt="旅行封面">
+        </div>
+        <div class="cover-copy">
+          <p class="kicker">Private Travel Album</p>
+          <h1 id="heroTitle">Amy Travel</h1>
+          <p id="heroSubtitle">A visual notebook for places, light, rooms, meals, roads, and quiet family moments.</p>
+        </div>
+        <aside class="cover-details">
+          <span id="tripYear">2026</span>
+          <p id="photoCount">06 photos</p>
+        </aside>
+      </section>
+
+      <section class="story-block" id="story">
+        <p class="kicker">This Trip</p>
+        <h2 id="storyTitle">本次旅行</h2>
+        <p id="storyText">写一小段本次旅行介绍，剩下交给照片。这里不需要路线，不需要流水账。</p>
+      </section>
+
+      <section class="photo-editorial" id="photos">
+        <div class="editorial-heading">
+          <p class="kicker">Photographs</p>
+          <h2>Selected Frames</h2>
+        </div>
+        <div class="photo-grid" id="photoGrid" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Amy Travel</span>
+      <p>Local Preview</p>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
