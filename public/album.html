@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Amy Travel | Album</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/">Amy Travel</a>
+      <nav>
+        <a href="/">Index</a>
+        <a href="#photos">Photos</a>
+        <a href="upload.html">Upload</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="album-hero">
+        <div>
+          <p class="kicker" id="albumYear">Travel Book</p>
+          <h1 id="albumTitle">Album</h1>
+        </div>
+        <p id="albumIntro"></p>
+      </section>
+
+      <section class="photo-editorial album-page-photos" id="photos">
+        <div class="photo-grid" id="albumPhotos" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Amy Travel</span>
+      <p><a href="/">Back to index</a></p>
+    </footer>
+
+    <script src="album.js"></script>
+  </body>
+</html>

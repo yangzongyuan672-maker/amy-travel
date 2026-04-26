@@ -8,10 +8,10 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="index.html">Amy Travel</a>
+      <a class="brand" href="/">Amy Travel</a>
       <nav>
-        <a href="#story">Story</a>
-        <a href="#photos">Photos</a>
+        <a href="#index">Index</a>
+        <a href="#archive">Archive</a>
         <a href="upload.html">Upload</a>
       </nav>
     </header>
@@ -19,12 +19,13 @@
     <main>
       <section class="cover">
         <div class="cover-image">
-          <img id="coverPhoto" src="assets/photo-01.svg" alt="旅行封面">
+          <img id="coverPhoto" src="assets/photo-01.svg" alt="最新旅行封面">
         </div>
         <div class="cover-copy">
-          <p class="kicker">Private Travel Album</p>
+          <p class="kicker">Latest Travel Book</p>
           <h1 id="heroTitle">Amy Travel</h1>
           <p id="heroSubtitle">A visual notebook for places, light, rooms, meals, roads, and quiet family moments.</p>
+          <a class="cover-link" id="latestLink" href="#index">Open latest album</a>
         </div>
         <aside class="cover-details">
           <span id="tripYear">2026</span>
@@ -32,18 +33,24 @@
         </aside>
       </section>
 
-      <section class="photo-editorial" id="photos">
-        <div class="editorial-heading">
-          <p class="kicker">Albums</p>
+      <section class="album-index" id="index">
+        <div class="index-heading">
+          <p class="kicker">Index</p>
           <h2>Travel Books</h2>
+          <p>每一次旅行单独成册。先看目录，再进入某一本旅行照片集。</p>
         </div>
-        <div class="album-grid" id="albumGrid" aria-live="polite"></div>
+        <div class="album-card-grid" id="albumCards" aria-live="polite"></div>
+      </section>
+
+      <section class="archive-section" id="archive">
+        <p class="kicker">Archive</p>
+        <div id="archiveList" class="archive-list"></div>
       </section>
     </main>
 
     <footer class="footer">
       <span>Amy Travel</span>
-      <p>Local Preview</p>
+      <p>Private family travel archive</p>
     </footer>
 
     <script src="app.js"></script>
