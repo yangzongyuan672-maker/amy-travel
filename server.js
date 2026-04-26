@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import multer from "multer";
 import OpenAI from "openai";
+import sharp from "sharp";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,12 +61,18 @@ app.post("/api/admin/trip", requireAdmin, upload.array("photos", 30), async (req
   const rawYear = clean(req.body.year) || existing.year || new Date().getFullYear().toString();
   const rawIntro = clean(req.body.intro) || existing.intro || "";
   const polishedIntro = await polishIntro(rawTitle, rawIntro);
-  const photos = [...(existing.photos || [])];
+  let photos = [...(existing.photos || [])];
+  const uploadedFiles = req.files || [];
 
-  for (const file of req.files || []) {
-    const filename = await nextFilename(file.originalname);
+  if (uploadedFiles.length) {
+    photos = photos.filter((photo) => !String(photo.src || "").startsWith("/assets/"));
+  }
+
+  for (const file of uploadedFiles) {
+    const filename = await nextFilename();
     const finalPath = path.join(uploadDir, filename);
-    await fs.rename(file.path, finalPath);
+    await optimizeImage(file.path, finalPath);
+    await fs.unlink(file.path).catch(() => {});
     photos.push({
       src: `/uploads/${filename}`,
       caption: cleanCaption(file.originalname)
@@ -136,8 +143,7 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-async function nextFilename(originalName) {
-  const ext = safeExtension(originalName);
+async function nextFilename() {
   const day = formatFileDate(new Date());
   const files = await fs.readdir(uploadDir).catch(() => []);
   const prefix = `amy-travel-${day}-`;
@@ -146,15 +152,23 @@ async function nextFilename(originalName) {
     .map((name) => Number(name.slice(prefix.length, prefix.length + 2)))
     .filter(Number.isFinite);
   const next = numbers.length ? Math.max(...numbers) + 1 : 1;
-  return `${prefix}${String(next).padStart(2, "0")}${ext}`;
+  return `${prefix}${String(next).padStart(2, "0")}.jpg`;
 }
 
-function safeExtension(originalName) {
-  const ext = path.extname(originalName || "").toLowerCase();
-  if ([".jpg", ".jpeg", ".png", ".webp"].includes(ext)) {
-    return ext === ".jpeg" ? ".jpg" : ext;
-  }
-  return ".jpg";
+async function optimizeImage(sourcePath, targetPath) {
+  await sharp(sourcePath)
+    .rotate()
+    .resize({
+      width: 2000,
+      height: 2000,
+      fit: "inside",
+      withoutEnlargement: true
+    })
+    .jpeg({
+      quality: 82,
+      mozjpeg: true
+    })
+    .toFile(targetPath);
 }
 
 async function polishIntro(title, intro) {

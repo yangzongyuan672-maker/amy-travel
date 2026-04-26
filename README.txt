@@ -10,6 +10,7 @@ http://localhost:3000/upload.html
 说明：
 这个版本用于 Railway 部署。照片和旅行介绍会保存到 /app/data 对应的 Volume。
 如果配置 OPENAI_API_KEY，上传时会自动润色你写的简单介绍。
+上传照片会自动压缩成网页适合的大小，最长边约 2000px。
 
 默认本地密码：
 amy-travel
