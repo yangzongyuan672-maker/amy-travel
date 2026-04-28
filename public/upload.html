@@ -12,7 +12,7 @@
       <section class="upload-hero">
         <p class="kicker">Upload Studio</p>
         <h1>管理旅行专辑</h1>
-        <p>可以创建新专辑，也可以给已有专辑继续追加照片；iPhone 实况照片导出的视频可以上传到顶部视频墙。</p>
+        <p>可以创建新专辑，也可以给已有专辑继续追加照片；iPhone 实况照片导出的视频可以上传到顶部视频墙，系统会压缩为无声 MP4，并尽量读取拍摄时间与位置信息。</p>
       </section>
 
       <section class="upload-panel">
@@ -45,6 +45,11 @@
           <input id="tripYearInput" type="text" placeholder="例如：2026">
         </label>
 
+        <label class="wide motion-only">
+          视频墙地点 / 城市
+          <input id="motionLocation" type="text" placeholder="例如：Tokyo、Banff、Toronto；留空则尝试读取视频 GPS">
+        </label>
+
         <label class="wide new-only">
           本次旅行介绍
           <textarea id="tripIntro" rows="5" placeholder="简单写就可以，系统会帮你润色。"></textarea>
@@ -59,7 +64,7 @@
           <button id="saveButton" type="button">保存</button>
         </div>
 
-        <p class="status" id="status">密码会保存在当前浏览器。图片会自动压缩，视频会原样保存。</p>
+        <p class="status" id="status">密码会保存在当前浏览器。图片会自动压缩；视频会转为无声 MP4，并保留原始横竖方向用于杂志式视频墙。</p>
       </section>
 
       <section class="manage-section">
