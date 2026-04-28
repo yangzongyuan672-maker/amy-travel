@@ -1,9 +1,11 @@
 import express from "express";
 import fs from "fs/promises";
 import path from "path";
+import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import multer from "multer";
 import OpenAI from "openai";
+import ffmpegPath from "ffmpeg-static";
 import sharp from "sharp";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -156,7 +158,7 @@ app.delete("/api/admin/albums/:albumId", requireAdmin, async (req, res) => {
   }
 
   for (const item of album.photos || []) {
-    await deleteUploadedFile(item.src);
+    await deleteUploadedMedia(item);
   }
 
   const albums = (library.albums || []).filter((item) => item.id !== req.params.albumId);
@@ -184,7 +186,7 @@ app.delete("/api/admin/photos/:photoId", requireAdmin, async (req, res) => {
     return;
   }
 
-  await deleteUploadedFile(removed.src);
+  await deleteUploadedMedia(removed);
   const nextLibrary = { ...library, albums };
   await writeLibrary(nextLibrary);
   res.json({ ok: true, library: nextLibrary });
@@ -198,7 +200,7 @@ app.delete("/api/admin/videos/:videoId", requireAdmin, async (req, res) => {
     return;
   }
 
-  await deleteUploadedFile(video.src);
+  await deleteUploadedMedia(video);
   const nextLibrary = { ...library, videos: (library.videos || []).filter((item) => item.id !== req.params.videoId) };
   await writeLibrary(nextLibrary);
   res.json({ ok: true, library: nextLibrary });
@@ -283,15 +285,17 @@ async function processUploadedFiles(files) {
   const media = [];
   for (const file of files) {
     if (file.mimetype.startsWith("video/")) {
-      const filename = await nextVideoFilename(file.originalname);
-      const finalPath = path.join(uploadDir, filename);
-      await fs.rename(file.path, finalPath);
+      const video = await optimizeVideo(file.path);
+      await fs.unlink(file.path).catch(() => {});
       media.push({
         id: cryptoRandomId(),
         type: "video",
-        src: `/uploads/${filename}`,
+        src: `/uploads/${video.filename}`,
+        poster: `/uploads/${video.posterFilename}`,
         caption: `Motion ${String(media.length + 1).padStart(2, "0")}`,
-        orientation: "landscape"
+        width: 1080,
+        height: 1920,
+        orientation: "portrait"
       });
       continue;
     }
@@ -321,12 +325,12 @@ async function nextImageFilename() {
   return `${prefix}${String(next).padStart(2, "0")}.jpg`;
 }
 
-async function nextVideoFilename(originalName) {
+async function nextVideoFilename() {
   const day = formatFileDate(new Date());
   const files = await fs.readdir(uploadDir).catch(() => []);
   const prefix = `amy-motion-${day}-`;
   const next = nextNumber(files, prefix);
-  return `${prefix}${String(next).padStart(2, "0")}${safeVideoExtension(originalName)}`;
+  return `${prefix}${String(next).padStart(2, "0")}.mp4`;
 }
 
 function nextNumber(files, prefix) {
@@ -335,12 +339,6 @@ function nextNumber(files, prefix) {
     .map((name) => Number(name.slice(prefix.length, prefix.length + 2)))
     .filter(Number.isFinite);
   return numbers.length ? Math.max(...numbers) + 1 : 1;
-}
-
-function safeVideoExtension(originalName) {
-  const ext = path.extname(originalName || "").toLowerCase();
-  if ([".mp4", ".mov", ".webm"].includes(ext)) return ext;
-  return ".mp4";
 }
 
 async function optimizeImage(sourcePath, targetPath) {
@@ -357,6 +355,61 @@ async function optimizeImage(sourcePath, targetPath) {
       mozjpeg: true
     })
     .toFile(targetPath);
+}
+
+async function optimizeVideo(sourcePath) {
+  if (!ffmpegPath) {
+    throw new Error("ffmpeg is not available. Please reinstall dependencies and deploy again.");
+  }
+
+  const filename = await nextVideoFilename();
+  const posterFilename = filename.replace(/\.mp4$/i, ".jpg");
+  const videoPath = path.join(uploadDir, filename);
+  const posterPath = path.join(uploadDir, posterFilename);
+
+  await runFfmpeg([
+    "-y",
+    "-i", sourcePath,
+    "-map", "0:v:0",
+    "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+    "-an",
+    "-c:v", "libx264",
+    "-preset", "veryfast",
+    "-crf", "24",
+    "-pix_fmt", "yuv420p",
+    "-movflags", "+faststart",
+    videoPath
+  ]);
+
+  await runFfmpeg([
+    "-y",
+    "-i", videoPath,
+    "-frames:v", "1",
+    "-q:v", "3",
+    posterPath
+  ]);
+
+  return { filename, posterFilename };
+}
+
+function runFfmpeg(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(ffmpegPath, args, { windowsHide: true });
+    let stderr = "";
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`ffmpeg failed with code ${code}: ${stderr.slice(-1200)}`));
+    });
+  });
 }
 
 async function polishIntro(title, intro) {
@@ -418,16 +471,22 @@ function normalizeMediaItem(item, index = 0) {
     id: item.id || cryptoRandomId(),
     type,
     src: item.src,
+    poster: item.poster || "",
     caption: item.caption || (type === "video" ? `Motion ${String(index + 1).padStart(2, "0")}` : `Frame ${String(index + 1).padStart(2, "0")}`),
     width: item.width || null,
     height: item.height || null,
-    orientation: item.orientation || "landscape",
+    orientation: item.orientation || (type === "video" ? "portrait" : "landscape"),
     title: item.title || ""
   };
 }
 
 function latestAlbum(library) {
   return [...(library.albums || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || defaultLibrary.albums[0];
+}
+
+async function deleteUploadedMedia(item) {
+  await deleteUploadedFile(item?.src);
+  await deleteUploadedFile(item?.poster);
 }
 
 async function deleteUploadedFile(src) {
