@@ -5,6 +5,7 @@ const albumSelectWrap = document.querySelector("#albumSelectWrap");
 const titleInput = document.querySelector("#tripTitle");
 const yearInput = document.querySelector("#tripYearInput");
 const introInput = document.querySelector("#tripIntro");
+const locationInput = document.querySelector("#motionLocation");
 const mediaInput = document.querySelector("#mediaInput");
 const saveButton = document.querySelector("#saveButton");
 const statusText = document.querySelector("#status");
@@ -43,7 +44,8 @@ saveButton.addEventListener("click", async () => {
       setStatus("正在追加到已有专辑...");
     } else {
       url = "/api/admin/videos";
-      setStatus("正在上传到顶部视频墙...");
+      formData.append("location", locationInput.value.trim());
+      setStatus("正在压缩视频并生成杂志墙信息...");
     }
 
     const response = await fetch(url, {
@@ -56,6 +58,7 @@ saveButton.addEventListener("click", async () => {
 
     titleInput.value = "";
     introInput.value = "";
+    locationInput.value = "";
     mediaInput.value = "";
     yearInput.value = new Date().getFullYear().toString();
     renderLibrary(result.library);
@@ -129,7 +132,7 @@ function renderLibrary(library) {
       <div class="manage-photos">
         ${(album.photos || []).map((item, index) => `
           <figure>
-            ${item.type === "video" ? `<video src="${item.src}" muted playsinline></video>` : `<img src="${item.src}" alt="照片 ${index + 1}">`}
+            ${item.type === "video" ? `<video src="${item.src}" poster="${escapeHtml(item.poster || "")}" muted playsinline></video>` : `<img src="${item.src}" alt="照片 ${index + 1}">`}
             ${album.isSample ? "" : `<button type="button" data-delete-photo="${escapeHtml(item.id)}">删除</button>`}
           </figure>
         `).join("")}
@@ -139,7 +142,8 @@ function renderLibrary(library) {
 
   videoList.innerHTML = (library.videos || []).slice().reverse().map((video) => `
     <article class="manage-video">
-      <video src="${video.src}" muted loop playsinline controls preload="metadata"></video>
+      <video src="${video.src}" poster="${escapeHtml(video.poster || "")}" muted loop playsinline controls preload="metadata"></video>
+      <p>${escapeHtml(video.location || video.title || "Motion")}</p>
       <button type="button" data-delete-video="${escapeHtml(video.id)}">删除</button>
     </article>
   `).join("");
@@ -152,6 +156,9 @@ function updateMode() {
   albumSelectWrap.hidden = mode !== "append";
   document.querySelectorAll(".new-only").forEach((element) => {
     element.hidden = mode !== "new";
+  });
+  document.querySelectorAll(".motion-only").forEach((element) => {
+    element.hidden = mode !== "motion";
   });
   mediaInput.accept = mode === "motion"
     ? "video/mp4,video/quicktime,video/webm"
