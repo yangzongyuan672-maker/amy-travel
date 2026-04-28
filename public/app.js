@@ -100,10 +100,12 @@ function renderMotionWall(videos) {
 
 function renderMotionTile(video, index) {
   const shouldPrime = index < 4;
+  const poster = video.poster ? `poster="${escapeHtml(video.poster)}"` : "";
   return `
     <article class="motion-tile ${index === 0 ? "lead" : ""}">
       <video
         src="${video.src}"
+        ${poster}
         muted
         loop
         playsinline
