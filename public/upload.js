@@ -1,40 +1,54 @@
 const passwordInput = document.querySelector("#password");
+const uploadMode = document.querySelector("#uploadMode");
+const albumSelect = document.querySelector("#albumSelect");
+const albumSelectWrap = document.querySelector("#albumSelectWrap");
 const titleInput = document.querySelector("#tripTitle");
 const yearInput = document.querySelector("#tripYearInput");
 const introInput = document.querySelector("#tripIntro");
-const photoInput = document.querySelector("#photoInput");
+const mediaInput = document.querySelector("#mediaInput");
 const saveButton = document.querySelector("#saveButton");
 const statusText = document.querySelector("#status");
 const albumList = document.querySelector("#albumList");
+const videoList = document.querySelector("#videoList");
+
+let currentLibrary = { albums: [], videos: [] };
 
 passwordInput.value = localStorage.getItem("amyTravelPassword") || "";
 yearInput.value = new Date().getFullYear().toString();
 
+uploadMode.addEventListener("change", updateMode);
 loadLibrary();
 
 saveButton.addEventListener("click", async () => {
   const password = passwordInput.value.trim();
-  if (!password) {
-    setStatus("请先输入管理密码。", true);
-    return;
-  }
+  if (!password) return setStatus("请先输入管理密码。", true);
 
   localStorage.setItem("amyTravelPassword", password);
-  const formData = new FormData();
-  formData.append("title", titleInput.value.trim() || "Untitled Trip");
-  formData.append("year", yearInput.value.trim() || new Date().getFullYear().toString());
-  formData.append("intro", introInput.value.trim());
-  Array.from(photoInput.files || []).forEach((file) => formData.append("photos", file));
-
   saveButton.disabled = true;
-  setStatus("正在创建新专辑。照片会自动压缩，介绍会自动润色...");
 
   try {
-    const response = await fetch("/api/admin/trip", {
+    const mode = uploadMode.value;
+    const formData = new FormData();
+    Array.from(mediaInput.files || []).forEach((file) => formData.append("media", file));
+
+    let url = "/api/admin/trip";
+    if (mode === "new") {
+      formData.append("title", titleInput.value.trim() || "Untitled Trip");
+      formData.append("year", yearInput.value.trim() || new Date().getFullYear().toString());
+      formData.append("intro", introInput.value.trim());
+      setStatus("正在创建新专辑...");
+    } else if (mode === "append") {
+      if (!albumSelect.value) throw new Error("请先选择要追加的专辑。");
+      url = `/api/admin/albums/${albumSelect.value}/media`;
+      setStatus("正在追加到已有专辑...");
+    } else {
+      url = "/api/admin/videos";
+      setStatus("正在上传到顶部视频墙...");
+    }
+
+    const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "x-admin-password": password
-      },
+      headers: { "x-admin-password": password },
       body: formData
     });
     const result = await response.json();
@@ -42,10 +56,10 @@ saveButton.addEventListener("click", async () => {
 
     titleInput.value = "";
     introInput.value = "";
-    photoInput.value = "";
+    mediaInput.value = "";
     yearInput.value = new Date().getFullYear().toString();
     renderLibrary(result.library);
-    setStatus("新专辑已保存。可以返回 Amy Travel 查看。");
+    setStatus("已保存。可以返回 Amy Travel 查看。");
   } catch (error) {
     setStatus(error.message || "保存失败，请稍后再试。", true);
   } finally {
@@ -53,37 +67,37 @@ saveButton.addEventListener("click", async () => {
   }
 });
 
-albumList.addEventListener("click", async (event) => {
+albumList.addEventListener("click", handleDeleteClick);
+videoList.addEventListener("click", handleDeleteClick);
+
+async function handleDeleteClick(event) {
   const deleteAlbum = event.target.closest("[data-delete-album]");
   const deletePhoto = event.target.closest("[data-delete-photo]");
-  if (!deleteAlbum && !deletePhoto) return;
+  const deleteVideo = event.target.closest("[data-delete-video]");
+  if (!deleteAlbum && !deletePhoto && !deleteVideo) return;
 
   const password = passwordInput.value.trim();
-  if (!password) {
-    setStatus("请先输入管理密码。", true);
-    return;
-  }
+  if (!password) return setStatus("请先输入管理密码。", true);
 
-  const isAlbum = Boolean(deleteAlbum);
-  const id = isAlbum ? deleteAlbum.dataset.deleteAlbum : deletePhoto.dataset.deletePhoto;
-  const ok = confirm(isAlbum ? "确定删除整个专辑吗？" : "确定删除这张照片吗？");
+  const target = deleteAlbum || deletePhoto || deleteVideo;
+  const endpoint = deleteAlbum
+    ? `/api/admin/albums/${target.dataset.deleteAlbum}`
+    : deletePhoto
+      ? `/api/admin/photos/${target.dataset.deletePhoto}`
+      : `/api/admin/videos/${target.dataset.deleteVideo}`;
+  const ok = confirm(deleteAlbum ? "确定删除整个专辑吗？" : "确定删除这个项目吗？");
   if (!ok) return;
 
   try {
-    const response = await fetch(isAlbum ? `/api/admin/albums/${id}` : `/api/admin/photos/${id}`, {
-      method: "DELETE",
-      headers: {
-        "x-admin-password": password
-      }
-    });
+    const response = await fetch(endpoint, { method: "DELETE", headers: { "x-admin-password": password } });
     const result = await response.json();
     if (!response.ok || !result.ok) throw new Error(result.error || "删除失败");
     renderLibrary(result.library);
-    setStatus(isAlbum ? "专辑已删除。" : "照片已删除。");
+    setStatus("已删除。");
   } catch (error) {
     setStatus(error.message || "删除失败。", true);
   }
-});
+}
 
 async function loadLibrary() {
   try {
@@ -96,27 +110,52 @@ async function loadLibrary() {
 }
 
 function renderLibrary(library) {
+  currentLibrary = library;
   const albums = [...(library.albums || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  albumSelect.innerHTML = albums.filter((album) => !album.isSample).map((album) => `
+    <option value="${escapeHtml(album.id)}">${escapeHtml(album.title || "Untitled Trip")}</option>
+  `).join("");
+
   albumList.innerHTML = albums.map((album) => `
     <article class="manage-album">
       <div class="manage-album-head">
         <div>
           <p>${escapeHtml(album.year || "")}</p>
           <h2>${escapeHtml(album.title || "Untitled Trip")}</h2>
-          <span>${album.photos?.length || 0} photographs</span>
+          <span>${album.photos?.length || 0} items</span>
         </div>
         ${album.isSample ? "" : `<button type="button" data-delete-album="${escapeHtml(album.id)}">删除专辑</button>`}
       </div>
       <div class="manage-photos">
-        ${(album.photos || []).map((photo, index) => `
+        ${(album.photos || []).map((item, index) => `
           <figure>
-            <img src="${photo.src}" alt="照片 ${index + 1}">
-            ${album.isSample ? "" : `<button type="button" data-delete-photo="${escapeHtml(photo.id)}">删除</button>`}
+            ${item.type === "video" ? `<video src="${item.src}" muted playsinline></video>` : `<img src="${item.src}" alt="照片 ${index + 1}">`}
+            ${album.isSample ? "" : `<button type="button" data-delete-photo="${escapeHtml(item.id)}">删除</button>`}
           </figure>
         `).join("")}
       </div>
     </article>
   `).join("");
+
+  videoList.innerHTML = (library.videos || []).slice().reverse().map((video) => `
+    <article class="manage-video">
+      <video src="${video.src}" muted loop playsinline controls preload="metadata"></video>
+      <button type="button" data-delete-video="${escapeHtml(video.id)}">删除</button>
+    </article>
+  `).join("");
+
+  updateMode();
+}
+
+function updateMode() {
+  const mode = uploadMode.value;
+  albumSelectWrap.hidden = mode !== "append";
+  document.querySelectorAll(".new-only").forEach((element) => {
+    element.hidden = mode !== "new";
+  });
+  mediaInput.accept = mode === "motion"
+    ? "video/mp4,video/quicktime,video/webm"
+    : "image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm";
 }
 
 function setStatus(message, isError = false) {

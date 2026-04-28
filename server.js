@@ -20,16 +20,15 @@ const adminPassword = process.env.ADMIN_PASSWORD || "amy-travel";
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
 
 const samplePhotos = [
-  { src: "/assets/photo-01.svg", caption: "示例照片 01", orientation: "landscape" },
-  { src: "/assets/photo-02.svg", caption: "示例照片 02", orientation: "landscape" },
-  { src: "/assets/photo-03.svg", caption: "示例照片 03", orientation: "landscape" },
-  { src: "/assets/photo-04.svg", caption: "示例照片 04", orientation: "portrait" },
-  { src: "/assets/photo-05.svg", caption: "示例照片 05", orientation: "landscape" },
-  { src: "/assets/photo-06.svg", caption: "示例照片 06", orientation: "landscape" }
+  { type: "image", src: "/assets/photo-01.svg", caption: "Frame 01", orientation: "landscape" },
+  { type: "image", src: "/assets/photo-02.svg", caption: "Frame 02", orientation: "landscape" },
+  { type: "image", src: "/assets/photo-03.svg", caption: "Frame 03", orientation: "landscape" },
+  { type: "image", src: "/assets/photo-04.svg", caption: "Frame 04", orientation: "portrait" }
 ];
 
 const defaultLibrary = {
   siteTitle: "Amy Travel",
+  videos: [],
   albums: [
     {
       id: "sample",
@@ -48,12 +47,14 @@ const defaultLibrary = {
 const upload = multer({
   dest: tmpDir,
   limits: {
-    fileSize: 12 * 1024 * 1024,
-    files: 30
+    fileSize: 200 * 1024 * 1024,
+    files: 40
   },
   fileFilter: (_req, file, cb) => {
-    if (!/^image\/(jpeg|png|webp)$/i.test(file.mimetype)) {
-      cb(new Error("Only JPG, PNG, and WEBP images are supported."));
+    const okImage = /^image\/(jpeg|png|webp)$/i.test(file.mimetype);
+    const okVideo = /^video\/(mp4|quicktime|webm)$/i.test(file.mimetype);
+    if (!okImage && !okVideo) {
+      cb(new Error("Only JPG, PNG, WEBP, MP4, MOV, and WEBM files are supported."));
       return;
     }
     cb(null, true);
@@ -73,29 +74,13 @@ app.get("/api/albums", async (_req, res) => {
   res.json(await readLibrary());
 });
 
-app.post("/api/admin/trip", requireAdmin, upload.array("photos", 30), async (req, res) => {
+app.post("/api/admin/trip", requireAdmin, upload.array("media", 40), async (req, res) => {
   const library = await readLibrary();
   const rawTitle = clean(req.body.title) || "Untitled Trip";
   const rawYear = clean(req.body.year) || new Date().getFullYear().toString();
   const rawIntro = clean(req.body.intro) || "";
   const polishedIntro = await polishIntro(rawTitle, rawIntro);
-  const uploadedFiles = req.files || [];
-  const photos = [];
-
-  for (const file of uploadedFiles) {
-    const filename = await nextFilename();
-    const finalPath = path.join(uploadDir, filename);
-    const metadata = await optimizeImage(file.path, finalPath);
-    await fs.unlink(file.path).catch(() => {});
-    photos.push({
-      id: cryptoRandomId(),
-      src: `/uploads/${filename}`,
-      caption: `Frame ${String(photos.length + 1).padStart(2, "0")}`,
-      width: metadata.width,
-      height: metadata.height,
-      orientation: metadata.height > metadata.width ? "portrait" : "landscape"
-    });
-  }
+  const media = await processUploadedFiles(req.files || []);
 
   const album = {
     id: cryptoRandomId(),
@@ -103,15 +88,63 @@ app.post("/api/admin/trip", requireAdmin, upload.array("photos", 30), async (req
     year: rawYear,
     intro: polishedIntro,
     originalIntro: rawIntro,
-    photos,
+    photos: media.map((item, index) => ({
+      ...item,
+      caption: item.type === "video" ? `Motion ${String(index + 1).padStart(2, "0")}` : `Frame ${String(index + 1).padStart(2, "0")}`
+    })),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
 
   const albums = [...(library.albums || []).filter((item) => !item.isSample), album];
-  const nextLibrary = { siteTitle: "Amy Travel", albums };
+  const nextLibrary = { ...library, siteTitle: "Amy Travel", albums };
   await writeLibrary(nextLibrary);
   res.json({ ok: true, album, library: nextLibrary, trip: album });
+});
+
+app.post("/api/admin/albums/:albumId/media", requireAdmin, upload.array("media", 40), async (req, res) => {
+  const library = await readLibrary();
+  const media = await processUploadedFiles(req.files || []);
+  let found = false;
+
+  const albums = (library.albums || []).map((album) => {
+    if (album.id !== req.params.albumId) return album;
+    found = true;
+    const existing = album.photos || [];
+    const additions = media.map((item, index) => ({
+      ...item,
+      caption: item.type === "video"
+        ? `Motion ${String(existing.length + index + 1).padStart(2, "0")}`
+        : `Frame ${String(existing.length + index + 1).padStart(2, "0")}`
+    }));
+    return { ...album, photos: [...existing, ...additions], updatedAt: new Date().toISOString() };
+  });
+
+  if (!found) {
+    res.status(404).json({ ok: false, error: "Album not found." });
+    return;
+  }
+
+  const nextLibrary = { ...library, albums };
+  await writeLibrary(nextLibrary);
+  res.json({ ok: true, library: nextLibrary });
+});
+
+app.post("/api/admin/videos", requireAdmin, upload.array("media", 30), async (req, res) => {
+  const library = await readLibrary();
+  const media = (await processUploadedFiles(req.files || [])).filter((item) => item.type === "video");
+  const existing = library.videos || [];
+  const videos = [
+    ...existing,
+    ...media.map((item, index) => ({
+      ...item,
+      title: `Motion ${String(existing.length + index + 1).padStart(2, "0")}`,
+      caption: `Motion ${String(existing.length + index + 1).padStart(2, "0")}`
+    }))
+  ];
+  const nextLibrary = { ...library, videos };
+  await writeLibrary(nextLibrary);
+  res.json({ ok: true, library: nextLibrary });
 });
 
 app.delete("/api/admin/albums/:albumId", requireAdmin, async (req, res) => {
@@ -122,23 +155,23 @@ app.delete("/api/admin/albums/:albumId", requireAdmin, async (req, res) => {
     return;
   }
 
-  for (const photo of album.photos || []) {
-    await deleteUploadedFile(photo.src);
+  for (const item of album.photos || []) {
+    await deleteUploadedFile(item.src);
   }
 
   const albums = (library.albums || []).filter((item) => item.id !== req.params.albumId);
-  const nextLibrary = { siteTitle: "Amy Travel", albums: albums.length ? albums : defaultLibrary.albums };
+  const nextLibrary = { ...library, albums: albums.length ? albums : defaultLibrary.albums };
   await writeLibrary(nextLibrary);
   res.json({ ok: true, library: nextLibrary });
 });
 
 app.delete("/api/admin/photos/:photoId", requireAdmin, async (req, res) => {
   const library = await readLibrary();
-  let removedPhoto = null;
+  let removed = null;
   const albums = (library.albums || []).map((album) => {
-    const photos = (album.photos || []).filter((photo) => {
-      if (photo.id === req.params.photoId) {
-        removedPhoto = photo;
+    const photos = (album.photos || []).filter((item) => {
+      if (item.id === req.params.photoId) {
+        removed = item;
         return false;
       }
       return true;
@@ -146,13 +179,27 @@ app.delete("/api/admin/photos/:photoId", requireAdmin, async (req, res) => {
     return { ...album, photos, updatedAt: new Date().toISOString() };
   });
 
-  if (!removedPhoto) {
-    res.status(404).json({ ok: false, error: "Photo not found." });
+  if (!removed) {
+    res.status(404).json({ ok: false, error: "Media not found." });
     return;
   }
 
-  await deleteUploadedFile(removedPhoto.src);
-  const nextLibrary = { siteTitle: "Amy Travel", albums };
+  await deleteUploadedFile(removed.src);
+  const nextLibrary = { ...library, albums };
+  await writeLibrary(nextLibrary);
+  res.json({ ok: true, library: nextLibrary });
+});
+
+app.delete("/api/admin/videos/:videoId", requireAdmin, async (req, res) => {
+  const library = await readLibrary();
+  const video = (library.videos || []).find((item) => item.id === req.params.videoId);
+  if (!video) {
+    res.status(404).json({ ok: false, error: "Video not found." });
+    return;
+  }
+
+  await deleteUploadedFile(video.src);
+  const nextLibrary = { ...library, videos: (library.videos || []).filter((item) => item.id !== req.params.videoId) };
   await writeLibrary(nextLibrary);
   res.json({ ok: true, library: nextLibrary });
 });
@@ -169,6 +216,7 @@ async function initStorage() {
     if (legacyTrip?.title || legacyTrip?.photos) {
       await writeLibrary({
         siteTitle: "Amy Travel",
+        videos: [],
         albums: [
           {
             id: cryptoRandomId(),
@@ -176,12 +224,7 @@ async function initStorage() {
             year: legacyTrip.year || "2026",
             intro: legacyTrip.intro || "",
             originalIntro: legacyTrip.originalIntro || legacyTrip.intro || "",
-            photos: (legacyTrip.photos || []).map((photo, index) => ({
-              id: cryptoRandomId(),
-              caption: `Frame ${String(index + 1).padStart(2, "0")}`,
-              orientation: photo.orientation || "landscape",
-              ...photo
-            })),
+            photos: (legacyTrip.photos || []).map(normalizeMediaItem),
             createdAt: legacyTrip.updatedAt || new Date().toISOString(),
             updatedAt: legacyTrip.updatedAt || new Date().toISOString()
           }
@@ -199,6 +242,7 @@ async function readLibrary() {
   const albums = Array.isArray(library.albums) ? library.albums : [];
   return {
     siteTitle: library.siteTitle || "Amy Travel",
+    videos: (library.videos || []).map(normalizeMediaItem).filter((item) => item.src),
     albums: albums.length ? albums.map(normalizeAlbum) : defaultLibrary.albums
   };
 }
@@ -235,20 +279,72 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-async function nextFilename() {
+async function processUploadedFiles(files) {
+  const media = [];
+  for (const file of files) {
+    if (file.mimetype.startsWith("video/")) {
+      const filename = await nextVideoFilename(file.originalname);
+      const finalPath = path.join(uploadDir, filename);
+      await fs.rename(file.path, finalPath);
+      media.push({
+        id: cryptoRandomId(),
+        type: "video",
+        src: `/uploads/${filename}`,
+        caption: `Motion ${String(media.length + 1).padStart(2, "0")}`,
+        orientation: "landscape"
+      });
+      continue;
+    }
+
+    const filename = await nextImageFilename();
+    const finalPath = path.join(uploadDir, filename);
+    const metadata = await optimizeImage(file.path, finalPath);
+    await fs.unlink(file.path).catch(() => {});
+    media.push({
+      id: cryptoRandomId(),
+      type: "image",
+      src: `/uploads/${filename}`,
+      caption: `Frame ${String(media.length + 1).padStart(2, "0")}`,
+      width: metadata.width,
+      height: metadata.height,
+      orientation: metadata.height > metadata.width ? "portrait" : "landscape"
+    });
+  }
+  return media;
+}
+
+async function nextImageFilename() {
   const day = formatFileDate(new Date());
   const files = await fs.readdir(uploadDir).catch(() => []);
   const prefix = `amy-travel-${day}-`;
+  const next = nextNumber(files, prefix);
+  return `${prefix}${String(next).padStart(2, "0")}.jpg`;
+}
+
+async function nextVideoFilename(originalName) {
+  const day = formatFileDate(new Date());
+  const files = await fs.readdir(uploadDir).catch(() => []);
+  const prefix = `amy-motion-${day}-`;
+  const next = nextNumber(files, prefix);
+  return `${prefix}${String(next).padStart(2, "0")}${safeVideoExtension(originalName)}`;
+}
+
+function nextNumber(files, prefix) {
   const numbers = files
     .filter((name) => name.startsWith(prefix))
     .map((name) => Number(name.slice(prefix.length, prefix.length + 2)))
     .filter(Number.isFinite);
-  const next = numbers.length ? Math.max(...numbers) + 1 : 1;
-  return `${prefix}${String(next).padStart(2, "0")}.jpg`;
+  return numbers.length ? Math.max(...numbers) + 1 : 1;
+}
+
+function safeVideoExtension(originalName) {
+  const ext = path.extname(originalName || "").toLowerCase();
+  if ([".mp4", ".mov", ".webm"].includes(ext)) return ext;
+  return ".mp4";
 }
 
 async function optimizeImage(sourcePath, targetPath) {
-  const info = await sharp(sourcePath)
+  return sharp(sourcePath)
     .rotate()
     .resize({
       width: 2000,
@@ -261,7 +357,6 @@ async function optimizeImage(sourcePath, targetPath) {
       mozjpeg: true
     })
     .toFile(targetPath);
-  return info;
 }
 
 async function polishIntro(title, intro) {
@@ -280,7 +375,7 @@ async function polishIntro(title, intro) {
           content: `旅行标题：${title}\n原始介绍：${intro}`
         }
       ],
-      max_tokens: 180,
+      max_tokens: 220,
       temperature: 0.7
     });
 
@@ -310,17 +405,24 @@ function normalizeAlbum(album) {
     year: album.year || "2026",
     intro: album.intro || "",
     originalIntro: album.originalIntro || album.intro || "",
-    photos: (album.photos || []).map((photo, index) => ({
-      id: photo.id || cryptoRandomId(),
-      src: photo.src,
-      caption: photo.caption?.startsWith("示例") ? photo.caption : `Frame ${String(index + 1).padStart(2, "0")}`,
-      width: photo.width || null,
-      height: photo.height || null,
-      orientation: photo.orientation || "landscape"
-    })).filter((photo) => photo.src),
+    photos: (album.photos || []).map(normalizeMediaItem).filter((item) => item.src),
     createdAt: album.createdAt || new Date().toISOString(),
     updatedAt: album.updatedAt || album.createdAt || new Date().toISOString(),
     isSample: Boolean(album.isSample)
+  };
+}
+
+function normalizeMediaItem(item, index = 0) {
+  const type = item.type || (String(item.src || "").match(/\.(mp4|mov|webm)$/i) ? "video" : "image");
+  return {
+    id: item.id || cryptoRandomId(),
+    type,
+    src: item.src,
+    caption: item.caption || (type === "video" ? `Motion ${String(index + 1).padStart(2, "0")}` : `Frame ${String(index + 1).padStart(2, "0")}`),
+    width: item.width || null,
+    height: item.height || null,
+    orientation: item.orientation || "landscape",
+    title: item.title || ""
   };
 }
 

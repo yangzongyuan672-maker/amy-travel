@@ -3,16 +3,16 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Amy Travel | 上传</title>
+    <title>Amy Travel | Upload</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body class="upload-page">
     <main class="upload-shell">
-      <a class="back-link" href="index.html">返回 Amy Travel</a>
+      <a class="back-link" href="/">返回 Amy Travel</a>
       <section class="upload-hero">
-        <p class="kicker">Local Upload</p>
-        <h1>创建新旅行专辑</h1>
-        <p>每次保存都会生成一个新专辑，旧专辑会保留。介绍可以写得简单，系统会润色成更像旅行影像集的文字。</p>
+        <p class="kicker">Upload Studio</p>
+        <h1>管理旅行专辑</h1>
+        <p>可以创建新专辑，也可以给已有专辑继续追加照片；iPhone 实况照片导出的视频可以上传到顶部视频墙。</p>
       </section>
 
       <section class="upload-panel">
@@ -22,37 +22,56 @@
         </label>
 
         <label>
-          本次旅行标题
-          <input id="tripTitle" type="text" placeholder="例如：温哥华周末">
+          上传方式
+          <select id="uploadMode">
+            <option value="new">创建新专辑</option>
+            <option value="append">追加到已有专辑</option>
+            <option value="motion">上传到顶部视频墙</option>
+          </select>
         </label>
 
-        <label>
+        <label id="albumSelectWrap">
+          选择专辑
+          <select id="albumSelect"></select>
+        </label>
+
+        <label class="new-only">
+          本次旅行标题
+          <input id="tripTitle" type="text" placeholder="例如：班夫国家公园">
+        </label>
+
+        <label class="new-only">
           年份
           <input id="tripYearInput" type="text" placeholder="例如：2026">
         </label>
 
-        <label class="wide">
+        <label class="wide new-only">
           本次旅行介绍
-          <textarea id="tripIntro" rows="5" placeholder="写一小段介绍，例如这次去了哪里、为什么喜欢、有什么值得记住。"></textarea>
+          <textarea id="tripIntro" rows="5" placeholder="简单写就可以，系统会帮你润色。"></textarea>
         </label>
 
         <label class="wide">
-          选择照片
-          <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp" multiple>
+          选择照片或视频
+          <input id="mediaInput" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" multiple>
         </label>
 
         <div class="upload-actions">
-          <button id="saveButton" type="button">保存介绍和照片</button>
-          <button id="clearButton" type="button">清空本地照片</button>
+          <button id="saveButton" type="button">保存</button>
         </div>
 
-        <p class="status" id="status">密码会保存在当前浏览器。照片会自动压缩成网页适合的尺寸。</p>
+        <p class="status" id="status">密码会保存在当前浏览器。图片会自动压缩，视频会原样保存。</p>
       </section>
 
       <section class="manage-section">
         <p class="kicker">Manage</p>
         <h2>已有专辑</h2>
         <div id="albumList" class="album-list"></div>
+      </section>
+
+      <section class="manage-section">
+        <p class="kicker">Motion Wall</p>
+        <h2>置顶视频</h2>
+        <div id="videoList" class="video-list"></div>
       </section>
     </main>
 

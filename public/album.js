@@ -23,7 +23,9 @@ function renderAlbum(album) {
   document.querySelector("#albumIntro").textContent = album.intro || "";
   document.querySelector("#albumPhotos").innerHTML = (album.photos || []).map((photo, index) => `
     <figure class="${photo.orientation === "portrait" ? "portrait" : "landscape"}">
-      <img src="${photo.src}" alt="旅行照片 ${index + 1}" loading="lazy">
+      ${photo.type === "video"
+        ? `<video src="${photo.src}" muted loop playsinline controls preload="metadata"></video>`
+        : `<img src="${photo.src}" alt="旅行照片 ${index + 1}" loading="lazy">`}
       <figcaption>Frame ${String(index + 1).padStart(2, "0")}</figcaption>
     </figure>
   `).join("");

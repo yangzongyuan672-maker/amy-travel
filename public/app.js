@@ -34,6 +34,7 @@ function renderLibrary(library) {
   const albums = sortAlbums((library.albums || fallbackLibrary.albums).filter((album) => album.photos?.length));
   const latest = albums[0] || fallbackLibrary.albums[0];
   const latestPhoto = latest.photos?.[0]?.src || "/assets/photo-01.svg";
+  renderMotionWall(library.videos || []);
 
   document.querySelector("#heroTitle").textContent = latest.title || "Amy Travel";
   document.querySelector("#heroSubtitle").textContent = latest.intro || fallbackLibrary.albums[0].intro;
@@ -81,6 +82,40 @@ function renderArchive(albums) {
       </div>
     </article>
   `).join("");
+}
+
+function renderMotionWall(videos) {
+  const wall = document.querySelector("#motionWall");
+  const grid = document.querySelector("#motionGrid");
+  if (!videos.length) {
+    wall.hidden = true;
+    return;
+  }
+
+  wall.hidden = false;
+  const selected = videos.slice(-12).reverse();
+  grid.innerHTML = selected.map((video, index) => `
+    <article class="motion-tile ${index === 0 ? "lead" : ""}">
+      <video src="${video.src}" muted loop playsinline preload="metadata"></video>
+      <span>${escapeHtml(video.title || `Motion ${String(index + 1).padStart(2, "0")}`)}</span>
+    </article>
+  `).join("");
+  observeVideos(grid.querySelectorAll("video"));
+}
+
+function observeVideos(videos) {
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      const video = entry.target;
+      if (entry.isIntersecting) {
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    });
+  }, { threshold: 0.45 });
+
+  videos.forEach((video) => observer.observe(video));
 }
 
 function sortAlbums(albums) {
