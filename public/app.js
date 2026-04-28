@@ -94,13 +94,41 @@ function renderMotionWall(videos) {
 
   wall.hidden = false;
   const selected = videos.slice(-12).reverse();
-  grid.innerHTML = selected.map((video, index) => `
+  grid.innerHTML = selected.map(renderMotionTile).join("");
+  prepareMotionVideos(grid.querySelectorAll("video"));
+}
+
+function renderMotionTile(video, index) {
+  const shouldPrime = index < 4;
+  return `
     <article class="motion-tile ${index === 0 ? "lead" : ""}">
-      <video src="${video.src}" muted loop playsinline preload="metadata"></video>
+      <video
+        src="${video.src}"
+        muted
+        loop
+        playsinline
+        ${shouldPrime ? "autoplay" : ""}
+        preload="${shouldPrime ? "auto" : "metadata"}"
+        data-priority="${shouldPrime ? "high" : "normal"}"
+      ></video>
       <span>${escapeHtml(video.title || `Motion ${String(index + 1).padStart(2, "0")}`)}</span>
     </article>
-  `).join("");
-  observeVideos(grid.querySelectorAll("video"));
+  `;
+}
+
+function prepareMotionVideos(videos) {
+  videos.forEach((video, index) => {
+    video.muted = true;
+    video.playsInline = true;
+
+    if (index < 4) {
+      video.preload = "auto";
+      video.load();
+      attemptVideoPlay(video);
+    }
+  });
+
+  observeVideos(videos);
 }
 
 function observeVideos(videos) {
@@ -108,14 +136,32 @@ function observeVideos(videos) {
     entries.forEach((entry) => {
       const video = entry.target;
       if (entry.isIntersecting) {
-        video.play().catch(() => {});
+        if (video.preload !== "auto") {
+          video.preload = "auto";
+          video.load();
+        }
+        attemptVideoPlay(video);
       } else {
         video.pause();
       }
     });
-  }, { threshold: 0.45 });
+  }, {
+    rootMargin: "420px 0px",
+    threshold: 0.12
+  });
 
   videos.forEach((video) => observer.observe(video));
+}
+
+function attemptVideoPlay(video) {
+  const play = () => video.play().catch(() => {});
+
+  if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+    play();
+    return;
+  }
+
+  video.addEventListener("canplay", play, { once: true });
 }
 
 function sortAlbums(albums) {
