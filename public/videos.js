@@ -12,12 +12,15 @@ async function loadVideos() {
 }
 
 function renderVideos(target, videos) {
-  target.innerHTML = videos.map((video, index) => `
-    <article class="motion-tile">
-      <video src="${video.src}" muted loop playsinline preload="metadata"></video>
-      <span>${video.title || `Motion ${String(index + 1).padStart(2, "0")}`}</span>
-    </article>
-  `).join("");
+  target.innerHTML = videos.map((video, index) => {
+    const poster = video.poster ? `poster="${escapeHtml(video.poster)}"` : "";
+    return `
+      <article class="motion-tile">
+        <video src="${video.src}" ${poster} muted loop playsinline preload="metadata"></video>
+        <span>${escapeHtml(video.title || `Motion ${String(index + 1).padStart(2, "0")}`)}</span>
+      </article>
+    `;
+  }).join("");
   observeVideos(target.querySelectorAll("video"));
 }
 
@@ -26,11 +29,26 @@ function observeVideos(videos) {
     entries.forEach((entry) => {
       const video = entry.target;
       if (entry.isIntersecting) {
+        if (video.preload !== "auto") {
+          video.preload = "auto";
+          video.load();
+        }
         video.play().catch(() => {});
       } else {
         video.pause();
       }
     });
-  }, { threshold: 0.45 });
+  }, {
+    rootMargin: "360px 0px",
+    threshold: 0.12
+  });
   videos.forEach((video) => observer.observe(video));
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
