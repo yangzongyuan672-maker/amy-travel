@@ -93,7 +93,7 @@ function renderMotionWall(videos) {
   }
 
   wall.hidden = false;
-  const selected = videos.slice(-12).reverse();
+  const selected = videos.slice(-9).reverse();
   grid.innerHTML = selected.map(renderMotionTile).join("");
   prepareMotionVideos(grid.querySelectorAll("video"));
 }
@@ -101,8 +101,15 @@ function renderMotionWall(videos) {
 function renderMotionTile(video, index) {
   const shouldPrime = index < 4;
   const poster = video.poster ? `poster="${escapeHtml(video.poster)}"` : "";
+  const orientation = video.orientation || inferOrientation(video);
+  const layout = motionLayoutClass(index, orientation);
+  const location = video.location || video.title || "Amy Travel";
+  const date = formatVideoDate(video.capturedAt);
+  const duration = formatDuration(video.duration);
+  const label = video.caption || `Motion ${String(index + 1).padStart(2, "0")}`;
+
   return `
-    <article class="motion-tile ${index === 0 ? "lead" : ""}">
+    <article class="motion-tile ${layout}" data-orientation="${escapeHtml(orientation)}">
       <video
         src="${video.src}"
         ${poster}
@@ -113,9 +120,47 @@ function renderMotionTile(video, index) {
         preload="${shouldPrime ? "auto" : "metadata"}"
         data-priority="${shouldPrime ? "high" : "normal"}"
       ></video>
-      <span>${escapeHtml(video.title || `Motion ${String(index + 1).padStart(2, "0")}`)}</span>
+      <div class="motion-shade" aria-hidden="true"></div>
+      <div class="motion-copy">
+        <p>${escapeHtml(location)}</p>
+        <h3>${escapeHtml(index === 0 ? "A Moving Archive" : label)}</h3>
+        <span>${escapeHtml([date, duration].filter(Boolean).join(" · "))}</span>
+      </div>
+      <small>${escapeHtml(String(index + 1).padStart(2, "0"))}</small>
     </article>
   `;
+}
+
+function motionLayoutClass(index, orientation) {
+  if (index === 0) return "lead";
+  if (index === 1) return "rail";
+  if (index === 2) return orientation === "landscape" ? "wide" : "portrait";
+  if (index === 3) return "square";
+  if (index === 4) return "strip";
+  if (orientation === "landscape") return "wide";
+  if (orientation === "portrait") return "portrait";
+  return "square";
+}
+
+function inferOrientation(video) {
+  const width = Number(video.width) || 1;
+  const height = Number(video.height) || 1;
+  if (width > height * 1.12) return "landscape";
+  if (height > width * 1.12) return "portrait";
+  return "square";
+}
+
+function formatVideoDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  return date.toLocaleDateString("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/-/g, ".");
+}
+
+function formatDuration(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  return `${Math.max(1, Math.round(seconds))} sec loop`;
 }
 
 function prepareMotionVideos(videos) {
@@ -148,8 +193,8 @@ function observeVideos(videos) {
       }
     });
   }, {
-    rootMargin: "420px 0px",
-    threshold: 0.12
+    rootMargin: "520px 0px",
+    threshold: 0.1
   });
 
   videos.forEach((video) => observer.observe(video));
