@@ -6,10 +6,12 @@ import { fileURLToPath } from "url";
 import multer from "multer";
 import OpenAI from "openai";
 import ffmpegPath from "ffmpeg-static";
+import ffprobeStatic from "ffprobe-static";
 import sharp from "sharp";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const ffprobePath = ffprobeStatic?.path || ffprobeStatic;
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -82,7 +84,7 @@ app.post("/api/admin/trip", requireAdmin, upload.array("media", 40), async (req,
   const rawYear = clean(req.body.year) || new Date().getFullYear().toString();
   const rawIntro = clean(req.body.intro) || "";
   const polishedIntro = await polishIntro(rawTitle, rawIntro);
-  const media = await processUploadedFiles(req.files || []);
+  const media = await processUploadedFiles(req.files || [], { location: rawTitle });
 
   const album = {
     id: cryptoRandomId(),
@@ -106,7 +108,8 @@ app.post("/api/admin/trip", requireAdmin, upload.array("media", 40), async (req,
 
 app.post("/api/admin/albums/:albumId/media", requireAdmin, upload.array("media", 40), async (req, res) => {
   const library = await readLibrary();
-  const media = await processUploadedFiles(req.files || []);
+  const albumForLocation = (library.albums || []).find((album) => album.id === req.params.albumId);
+  const media = await processUploadedFiles(req.files || [], { location: albumForLocation?.title || "" });
   let found = false;
 
   const albums = (library.albums || []).map((album) => {
@@ -134,13 +137,14 @@ app.post("/api/admin/albums/:albumId/media", requireAdmin, upload.array("media",
 
 app.post("/api/admin/videos", requireAdmin, upload.array("media", 30), async (req, res) => {
   const library = await readLibrary();
-  const media = (await processUploadedFiles(req.files || [])).filter((item) => item.type === "video");
+  const manualLocation = clean(req.body.location);
+  const media = (await processUploadedFiles(req.files || [], { location: manualLocation })).filter((item) => item.type === "video");
   const existing = library.videos || [];
   const videos = [
     ...existing,
     ...media.map((item, index) => ({
       ...item,
-      title: `Motion ${String(existing.length + index + 1).padStart(2, "0")}`,
+      title: item.location || `Motion ${String(existing.length + index + 1).padStart(2, "0")}`,
       caption: `Motion ${String(existing.length + index + 1).padStart(2, "0")}`
     }))
   ];
@@ -281,11 +285,11 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-async function processUploadedFiles(files) {
+async function processUploadedFiles(files, options = {}) {
   const media = [];
   for (const file of files) {
     if (file.mimetype.startsWith("video/")) {
-      const video = await optimizeVideo(file.path);
+      const video = await optimizeVideo(file.path, options);
       await fs.unlink(file.path).catch(() => {});
       media.push({
         id: cryptoRandomId(),
@@ -293,9 +297,13 @@ async function processUploadedFiles(files) {
         src: `/uploads/${video.filename}`,
         poster: `/uploads/${video.posterFilename}`,
         caption: `Motion ${String(media.length + 1).padStart(2, "0")}`,
-        width: 1080,
-        height: 1920,
-        orientation: "portrait"
+        width: video.width,
+        height: video.height,
+        duration: video.duration,
+        capturedAt: video.capturedAt,
+        location: video.location,
+        coordinates: video.coordinates,
+        orientation: video.orientation
       });
       continue;
     }
@@ -357,11 +365,13 @@ async function optimizeImage(sourcePath, targetPath) {
     .toFile(targetPath);
 }
 
-async function optimizeVideo(sourcePath) {
+async function optimizeVideo(sourcePath, options = {}) {
   if (!ffmpegPath) {
     throw new Error("ffmpeg is not available. Please reinstall dependencies and deploy again.");
   }
 
+  const metadata = await probeVideo(sourcePath);
+  const dimensions = chooseVideoDimensions(metadata);
   const filename = await nextVideoFilename();
   const posterFilename = filename.replace(/\.mp4$/i, ".jpg");
   const videoPath = path.join(uploadDir, filename);
@@ -371,7 +381,7 @@ async function optimizeVideo(sourcePath) {
     "-y",
     "-i", sourcePath,
     "-map", "0:v:0",
-    "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+    "-vf", `scale=${dimensions.width}:${dimensions.height}`,
     "-an",
     "-c:v", "libx264",
     "-preset", "veryfast",
@@ -389,7 +399,91 @@ async function optimizeVideo(sourcePath) {
     posterPath
   ]);
 
-  return { filename, posterFilename };
+  return {
+    filename,
+    posterFilename,
+    width: dimensions.width,
+    height: dimensions.height,
+    orientation: dimensions.orientation,
+    duration: metadata.duration,
+    capturedAt: metadata.capturedAt,
+    location: clean(options.location) || metadata.location || "",
+    coordinates: metadata.coordinates
+  };
+}
+
+async function probeVideo(sourcePath) {
+  if (!ffprobePath) return {};
+
+  try {
+    const output = await runFfprobe([
+      "-v", "quiet",
+      "-print_format", "json",
+      "-show_format",
+      "-show_streams",
+      sourcePath
+    ]);
+    const data = JSON.parse(output);
+    const stream = (data.streams || []).find((item) => item.codec_type === "video") || {};
+    const tags = { ...(data.format?.tags || {}), ...(stream.tags || {}) };
+    const rotation = readRotation(stream);
+    const rawWidth = Number(stream.width) || 0;
+    const rawHeight = Number(stream.height) || 0;
+    const rotated = Math.abs(rotation) === 90 || Math.abs(rotation) === 270;
+    const width = rotated ? rawHeight : rawWidth;
+    const height = rotated ? rawWidth : rawHeight;
+    const coordinates = parseIso6709(tags["com.apple.quicktime.location.ISO6709"] || tags.location || "");
+
+    return {
+      width,
+      height,
+      rotation,
+      duration: Number(stream.duration || data.format?.duration) || null,
+      capturedAt: tags.creation_time || tags["com.apple.quicktime.creationdate"] || "",
+      coordinates,
+      location: coordinates ? formatCoordinates(coordinates) : ""
+    };
+  } catch (error) {
+    console.warn("Video metadata probe failed:", error.message);
+    return {};
+  }
+}
+
+function chooseVideoDimensions(metadata) {
+  const width = Number(metadata.width) || 1080;
+  const height = Number(metadata.height) || 1080;
+  const orientation = width > height * 1.12 ? "landscape" : height > width * 1.12 ? "portrait" : "square";
+  const maxLongEdge = orientation === "landscape" ? 1440 : 1600;
+  const longEdge = Math.max(width, height);
+  const scale = Math.min(1, maxLongEdge / longEdge);
+  return {
+    width: even(Math.max(2, Math.round(width * scale))),
+    height: even(Math.max(2, Math.round(height * scale))),
+    orientation
+  };
+}
+
+function even(value) {
+  return value % 2 === 0 ? value : value - 1;
+}
+
+function readRotation(stream) {
+  const sideData = (stream.side_data_list || []).find((item) => item.rotation !== undefined);
+  const rotateTag = stream.tags?.rotate;
+  return Number(sideData?.rotation ?? rotateTag ?? 0) || 0;
+}
+
+function parseIso6709(value) {
+  const match = String(value || "").match(/^([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  return { latitude: Number(match[1]), longitude: Number(match[2]) };
+}
+
+function formatCoordinates(coordinates) {
+  if (!coordinates) return "";
+  const lat = Math.abs(coordinates.latitude).toFixed(2);
+  const lon = Math.abs(coordinates.longitude).toFixed(2);
+  return `${lat}${coordinates.latitude >= 0 ? "N" : "S"} / ${lon}${coordinates.longitude >= 0 ? "E" : "W"}`;
 }
 
 function runFfmpeg(args) {
@@ -408,6 +502,31 @@ function runFfmpeg(args) {
         return;
       }
       reject(new Error(`ffmpeg failed with code ${code}: ${stderr.slice(-1200)}`));
+    });
+  });
+}
+
+function runFfprobe(args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(ffprobePath, args, { windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout);
+        return;
+      }
+      reject(new Error(`ffprobe failed with code ${code}: ${stderr.slice(-1200)}`));
     });
   });
 }
@@ -475,9 +594,19 @@ function normalizeMediaItem(item, index = 0) {
     caption: item.caption || (type === "video" ? `Motion ${String(index + 1).padStart(2, "0")}` : `Frame ${String(index + 1).padStart(2, "0")}`),
     width: item.width || null,
     height: item.height || null,
-    orientation: item.orientation || (type === "video" ? "portrait" : "landscape"),
+    duration: item.duration || null,
+    capturedAt: item.capturedAt || "",
+    location: item.location || "",
+    coordinates: item.coordinates || null,
+    orientation: item.orientation || inferOrientation(item.width, item.height, type),
     title: item.title || ""
   };
+}
+
+function inferOrientation(width, height, type) {
+  if (type === "video" && height > width) return "portrait";
+  if (width > height) return "landscape";
+  return type === "video" ? "square" : "landscape";
 }
 
 function latestAlbum(library) {
