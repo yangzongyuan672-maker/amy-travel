@@ -93,16 +93,17 @@ function renderMotionWall(videos) {
   }
 
   wall.hidden = false;
-  const selected = videos.slice(-9).reverse();
+  const selected = videos.slice(-8).reverse();
   grid.innerHTML = selected.map(renderMotionTile).join("");
   prepareMotionVideos(grid.querySelectorAll("video"));
 }
 
 function renderMotionTile(video, index) {
-  const shouldPrime = index < 4;
   const poster = video.poster ? `poster="${escapeHtml(video.poster)}"` : "";
   const orientation = video.orientation || inferOrientation(video);
   const layout = motionLayoutClass(index, orientation);
+  const width = Number(video.width) || (orientation === "portrait" ? 9 : 16);
+  const height = Number(video.height) || (orientation === "portrait" ? 16 : 9);
   const location = video.location || video.title || "Amy Travel";
   const date = formatVideoDate(video.capturedAt);
   const duration = formatDuration(video.duration);
@@ -110,7 +111,7 @@ function renderMotionTile(video, index) {
   const note = video.aiNote || [date, duration].filter(Boolean).join(" · ");
 
   return `
-    <article class="motion-tile ${layout}" data-orientation="${escapeHtml(orientation)}">
+    <article class="motion-tile ${layout}" data-orientation="${escapeHtml(orientation)}" style="--media-ratio: ${width} / ${height};">
       <video
         src="${video.src}"
         ${poster}
@@ -118,8 +119,8 @@ function renderMotionTile(video, index) {
         loop
         autoplay
         playsinline
-        preload="${shouldPrime ? "auto" : "metadata"}"
-        data-priority="${shouldPrime ? "high" : "normal"}"
+        preload="auto"
+        data-priority="high"
       ></video>
       <div class="motion-shade" aria-hidden="true"></div>
       <div class="motion-copy">
@@ -133,14 +134,10 @@ function renderMotionTile(video, index) {
 }
 
 function motionLayoutClass(index, orientation) {
-  if (index === 0) return "lead";
-  if (index === 1) return "rail";
-  if (index === 2) return orientation === "landscape" ? "wide" : "portrait";
-  if (index === 3) return "square";
-  if (index === 4) return "strip";
-  if (orientation === "landscape") return "wide";
-  if (orientation === "portrait") return "portrait";
-  return "square";
+  if (index === 0) return orientation === "portrait" ? "cover portrait-feature" : "cover landscape-feature";
+  if (orientation === "landscape") return index % 3 === 0 ? "panorama" : "landscape-card";
+  if (orientation === "portrait") return index % 2 === 0 ? "portrait-tall" : "portrait-card";
+  return "square-card";
 }
 
 function inferOrientation(video) {
@@ -165,23 +162,25 @@ function formatDuration(value) {
 }
 
 function prepareMotionVideos(videos) {
-  videos.forEach((video, index) => {
+  videos.forEach((video) => {
     video.muted = true;
+    video.defaultMuted = true;
     video.autoplay = true;
     video.loop = true;
     video.playsInline = true;
     video.controls = false;
-
-    if (index < 4) {
-      video.preload = "auto";
-    }
-
+    video.preload = "auto";
     video.load();
     attemptVideoPlay(video);
     video.addEventListener("loadeddata", () => attemptVideoPlay(video), { once: true });
     video.addEventListener("canplay", () => attemptVideoPlay(video), { once: true });
   });
 
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) videos.forEach(attemptVideoPlay);
+  });
+
+  window.addEventListener("focus", () => videos.forEach(attemptVideoPlay), { once: true });
   observeVideos(videos);
 }
 
@@ -190,18 +189,15 @@ function observeVideos(videos) {
     entries.forEach((entry) => {
       const video = entry.target;
       if (entry.isIntersecting) {
-        if (video.preload !== "auto") {
-          video.preload = "auto";
-          video.load();
-        }
+        video.preload = "auto";
         attemptVideoPlay(video);
       } else {
         video.pause();
       }
     });
   }, {
-    rootMargin: "520px 0px",
-    threshold: 0.1
+    rootMargin: "640px 0px",
+    threshold: 0.05
   });
 
   videos.forEach((video) => observer.observe(video));
