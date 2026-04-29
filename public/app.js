@@ -106,7 +106,8 @@ function renderMotionTile(video, index) {
   const location = video.location || video.title || "Amy Travel";
   const date = formatVideoDate(video.capturedAt);
   const duration = formatDuration(video.duration);
-  const label = video.caption || `Motion ${String(index + 1).padStart(2, "0")}`;
+  const label = video.aiTitle || video.caption || `Motion ${String(index + 1).padStart(2, "0")}`;
+  const note = video.aiNote || [date, duration].filter(Boolean).join(" · ");
 
   return `
     <article class="motion-tile ${layout}" data-orientation="${escapeHtml(orientation)}">
@@ -115,8 +116,8 @@ function renderMotionTile(video, index) {
         ${poster}
         muted
         loop
+        autoplay
         playsinline
-        ${shouldPrime ? "autoplay" : ""}
         preload="${shouldPrime ? "auto" : "metadata"}"
         data-priority="${shouldPrime ? "high" : "normal"}"
       ></video>
@@ -124,7 +125,7 @@ function renderMotionTile(video, index) {
       <div class="motion-copy">
         <p>${escapeHtml(location)}</p>
         <h3>${escapeHtml(index === 0 ? "A Moving Archive" : label)}</h3>
-        <span>${escapeHtml([date, duration].filter(Boolean).join(" · "))}</span>
+        <span>${escapeHtml(note)}</span>
       </div>
       <small>${escapeHtml(String(index + 1).padStart(2, "0"))}</small>
     </article>
@@ -166,13 +167,19 @@ function formatDuration(value) {
 function prepareMotionVideos(videos) {
   videos.forEach((video, index) => {
     video.muted = true;
+    video.autoplay = true;
+    video.loop = true;
     video.playsInline = true;
+    video.controls = false;
 
     if (index < 4) {
       video.preload = "auto";
-      video.load();
-      attemptVideoPlay(video);
     }
+
+    video.load();
+    attemptVideoPlay(video);
+    video.addEventListener("loadeddata", () => attemptVideoPlay(video), { once: true });
+    video.addEventListener("canplay", () => attemptVideoPlay(video), { once: true });
   });
 
   observeVideos(videos);
@@ -203,12 +210,12 @@ function observeVideos(videos) {
 function attemptVideoPlay(video) {
   const play = () => video.play().catch(() => {});
 
-  if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+  if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
     play();
     return;
   }
 
-  video.addEventListener("canplay", play, { once: true });
+  video.addEventListener("loadeddata", play, { once: true });
 }
 
 function sortAlbums(albums) {
