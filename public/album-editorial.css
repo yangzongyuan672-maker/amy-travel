@@ -1,0 +1,91 @@
+.album-media {
+  position: relative;
+  overflow: hidden;
+}
+
+.album-video {
+  background: #161614;
+  box-shadow: 0 22px 70px rgba(20, 20, 19, 0.16);
+}
+
+.album-video video {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+  background: #161614;
+  filter: saturate(0.96) contrast(1.04);
+}
+
+.album-video.portrait video {
+  width: min(100%, 620px);
+  margin: 0 auto;
+}
+
+.album-video-shade {
+  position: absolute;
+  inset: auto 0 0;
+  height: min(42%, 260px);
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.58), transparent);
+}
+
+.album-video-caption {
+  position: absolute;
+  right: clamp(12px, 2vw, 24px);
+  bottom: clamp(12px, 2vw, 24px);
+  left: auto;
+  width: min(260px, calc(100% - 28px));
+  height: auto;
+  overflow: visible;
+  clip: auto;
+  display: grid;
+  gap: 6px;
+  text-align: right;
+  color: rgba(255, 250, 240, 0.88);
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.38);
+}
+
+.album-video-caption span,
+.album-video-caption small {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.album-video-caption span {
+  color: #d6a285;
+}
+
+.album-video-caption strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.08rem, 2vw, 2.1rem);
+  font-weight: 400;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+
+.album-video-caption small {
+  color: rgba(255, 250, 240, 0.68);
+}
+
+.album-video video::-webkit-media-controls,
+.album-video video::-webkit-media-controls-enclosure,
+.album-video video::-webkit-media-controls-panel,
+.album-video video::-webkit-media-controls-play-button,
+.album-video video::-webkit-media-controls-timeline,
+.album-video video::-webkit-media-controls-current-time-display,
+.album-video video::-webkit-media-controls-time-remaining-display,
+.album-video video::-webkit-media-controls-fullscreen-button {
+  display: none !important;
+  opacity: 0 !important;
+}
+
+@media (max-width: 680px) {
+  .album-video-caption {
+    text-align: left;
+    right: auto;
+    left: 14px;
+  }
+}
