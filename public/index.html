@@ -3,17 +3,18 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Amy Travel</title>
+    <title>Amy's Travel Archive | 私人旅行影像档案</title>
+    <meta name="description" content="Amy 的私人旅行影像档案，以画册方式收藏每一次出发、停留和回望。">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="motion-editorial.css">
   </head>
   <body>
     <header class="site-header">
-      <a class="brand" href="/">Amy Travel</a>
+      <a class="brand" href="/">Amy Archive</a>
       <nav>
-        <a href="#index">Index</a>
-        <a href="#archive">Archive</a>
-        <a href="upload.html">Upload</a>
+        <a href="#index">旅行集</a>
+        <a href="#archive">年份归档</a>
+        <a href="videos.html">影像墙</a>
       </nav>
     </header>
 
@@ -21,8 +22,8 @@
       <section class="motion-wall" id="motionWall" hidden>
         <div class="motion-heading">
           <p class="kicker">Motion Wall</p>
-          <h2>Live Moments</h2>
-          <a href="videos.html">View all</a>
+          <h2>流动影像</h2>
+          <a href="videos.html">查看全部</a>
         </div>
         <div class="motion-grid" id="motionGrid" aria-live="polite"></div>
       </section>
@@ -32,10 +33,10 @@
           <img id="coverPhoto" src="assets/photo-01.svg" alt="最新旅行封面">
         </div>
         <div class="cover-copy">
-          <p class="kicker">Latest Travel Book</p>
-          <h1 id="heroTitle">Amy Travel</h1>
-          <p id="heroSubtitle">A visual notebook for places, light, rooms, meals, roads, and quiet family moments.</p>
-          <a class="cover-link" id="latestLink" href="#index">Open latest album</a>
+          <p class="kicker">Latest Volume</p>
+          <h1 id="heroTitle">Amy's Travel Archive</h1>
+          <p id="heroSubtitle">为 Amy 收藏每一次出发、停留和回望。少一点说明，多一点光影和记忆。</p>
+          <a class="cover-link" id="latestLink" href="#index">进入最新旅行集</a>
         </div>
         <aside class="cover-details">
           <span id="tripYear">2026</span>
@@ -46,8 +47,8 @@
       <section class="album-index" id="index">
         <div class="index-heading">
           <p class="kicker">Index</p>
-          <h2>Travel Books</h2>
-          <p>每一次旅行单独成册。先看目录，再进入某一本旅行照片集。</p>
+          <h2>旅行集</h2>
+          <p>每一次旅行都单独成册，按年份归档。首页只保留最重要的画面和入口，让访客先被照片吸引，再慢慢进入每一段行程。</p>
         </div>
         <div class="album-card-grid" id="albumCards" aria-live="polite"></div>
       </section>
@@ -59,8 +60,8 @@
     </main>
 
     <footer class="footer">
-      <span>Amy Travel</span>
-      <p>Private family travel archive</p>
+      <span>Amy Archive</span>
+      <p>Private travel archive</p>
     </footer>
 
     <script src="app.js"></script>
