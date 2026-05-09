@@ -1,0 +1,96 @@
+:root {
+  --paper: #f3f1eb;
+  --paper-2: #dfe5df;
+  --soft: #4f554e;
+  --muted: #7a8178;
+  --ivory: #fffdf6;
+  --rust: #7b2e3a;
+  --green: #31473f;
+  --blue: #315f6b;
+}
+
+body {
+  text-rendering: geometricPrecision;
+}
+
+.site-header {
+  min-height: 78px;
+}
+
+.brand {
+  font-size: 1.22rem;
+  letter-spacing: 0.02em;
+}
+
+.site-header nav {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.site-header nav a,
+.cover-link,
+.motion-heading a,
+.footer a {
+  transition: opacity 180ms ease, border-color 180ms ease;
+}
+
+.site-header nav a:hover,
+.cover-link:hover,
+.motion-heading a:hover,
+.footer a:hover {
+  opacity: 0.68;
+}
+
+.cover,
+.album-hero,
+.upload-page {
+  background: #111210;
+}
+
+.motion-wall,
+.motion-archive {
+  background: #0f1110;
+}
+
+.cover-image img {
+  filter: saturate(0.94) contrast(1.04);
+}
+
+.album-card {
+  background: rgba(255, 253, 246, 0.76);
+  backdrop-filter: blur(16px);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+}
+
+.album-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 60px rgba(20, 20, 19, 0.16);
+}
+
+.album-card img {
+  filter: saturate(0.92) contrast(1.03);
+}
+
+.upload-panel input,
+.upload-panel textarea,
+.upload-panel select,
+.manage-album,
+.manage-video {
+  border-color: rgba(255, 253, 246, 0.2);
+}
+
+.upload-actions button {
+  border-radius: 0;
+}
+
+@media (max-width: 560px) {
+  .site-header nav {
+    gap: 12px;
+    font-size: 0.78rem;
+  }
+
+  .cover h1,
+  .album-hero h1 {
+    overflow-wrap: anywhere;
+  }
+}
