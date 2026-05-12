@@ -1,10 +1,11 @@
 .motion-wall {
   position: relative;
-  min-height: 100vh;
+  min-height: 100svh;
   padding: clamp(92px, 10vw, 138px) max(18px, calc((100vw - 1380px) / 2)) clamp(70px, 8vw, 112px);
   background:
-    radial-gradient(circle at 18% 12%, rgba(214, 162, 133, 0.13), transparent 34%),
-    linear-gradient(135deg, #0f0f0d 0%, #191713 48%, #0d0d0c 100%);
+    linear-gradient(180deg, rgba(15, 17, 16, 0.08), rgba(15, 17, 16, 0.92) 72%),
+    radial-gradient(circle at 18% 12%, rgba(214, 162, 133, 0.14), transparent 34%),
+    linear-gradient(135deg, #111412 0%, #1b1713 48%, #0c0d0c 100%);
   color: var(--ivory);
   overflow: hidden;
 }
@@ -54,10 +55,10 @@
   margin: 0;
   max-width: 980px;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(4.6rem, 12vw, 13rem);
+  font-size: clamp(4.4rem, 11vw, 12rem);
   font-weight: 400;
-  letter-spacing: -0.075em;
-  line-height: 0.78;
+  letter-spacing: 0;
+  line-height: 0.86;
 }
 
 .motion-heading a {
@@ -96,24 +97,39 @@
   transform: translateZ(0);
 }
 
+.motion-poster {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(0.96) contrast(1.04) brightness(0.94);
+}
+
 .motion-tile video {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center center;
   background: #11100f;
   filter: saturate(0.94) contrast(1.04) brightness(0.96);
+  opacity: 0;
 }
 
 .motion-tile.cover.landscape-feature {
-  grid-column: span 7;
-  --tile-ratio: var(--media-ratio);
+  grid-column: span 6;
+  --tile-ratio: 4 / 5;
 }
 
 .motion-tile.cover.portrait-feature {
-  grid-column: span 4;
-  --tile-ratio: var(--media-ratio);
+  grid-column: span 5;
+  --tile-ratio: 4 / 5;
 }
 
 .motion-tile.landscape-card {
@@ -141,10 +157,23 @@
   --tile-ratio: 1 / 1;
 }
 
+.motion-grid.all .motion-tile.landscape-card {
+  grid-column: span 5;
+}
+
+.motion-grid.all .motion-tile.portrait-card,
+.motion-grid.all .motion-tile.portrait-tall {
+  grid-column: span 4;
+}
+
+.motion-grid.all .motion-tile.square-card {
+  grid-column: span 4;
+}
+
 .motion-shade {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   background:
     linear-gradient(to top, rgba(0, 0, 0, 0.54), transparent 42%),
     linear-gradient(135deg, rgba(0, 0, 0, 0.22), transparent 36%);
@@ -156,9 +185,9 @@
   left: clamp(12px, 1.6vw, 24px);
   right: clamp(12px, 1.6vw, 24px);
   bottom: clamp(12px, 1.6vw, 24px);
-  z-index: 2;
+  z-index: 3;
   display: grid;
-  gap: 7px;
+  gap: 9px;
   color: rgba(255, 250, 240, 0.9);
   text-shadow: 0 1px 20px rgba(0, 0, 0, 0.4);
 }
@@ -178,18 +207,18 @@
 }
 
 .motion-copy h3 {
-  max-width: 11ch;
+  max-width: 13ch;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.2rem, 2.9vw, 3.8rem);
+  font-size: clamp(1.45rem, 2.5vw, 3.2rem);
   font-weight: 400;
-  letter-spacing: -0.052em;
-  line-height: 0.92;
+  letter-spacing: 0;
+  line-height: 0.96;
 }
 
 .motion-tile:not(.cover) .motion-copy h3 {
   max-width: 18ch;
   font-size: clamp(0.98rem, 1.45vw, 1.55rem);
-  letter-spacing: -0.025em;
+  letter-spacing: 0;
 }
 
 .motion-copy span {
@@ -201,7 +230,7 @@
 
 .motion-tile > small {
   position: absolute;
-  z-index: 2;
+  z-index: 3;
   top: 12px;
   right: 13px;
   color: rgba(255, 250, 240, 0.66);
@@ -230,12 +259,16 @@
   }
 
   .motion-tile.cover.landscape-feature,
+  .motion-grid.all .motion-tile.landscape-card,
   .motion-tile.panorama,
   .motion-tile.landscape-card {
     grid-column: span 6;
   }
 
   .motion-tile.cover.portrait-feature,
+  .motion-grid.all .motion-tile.portrait-card,
+  .motion-grid.all .motion-tile.portrait-tall,
+  .motion-grid.all .motion-tile.square-card,
   .motion-tile.portrait-card,
   .motion-tile.portrait-tall,
   .motion-tile.square-card {
@@ -245,7 +278,7 @@
 
 @media (max-width: 620px) {
   .motion-wall {
-    padding-top: 88px;
+    padding-top: 96px;
   }
 
   .motion-grid {
@@ -253,6 +286,7 @@
   }
 
   .motion-tile,
+  .motion-grid.all .motion-tile,
   .motion-tile.cover.landscape-feature,
   .motion-tile.cover.portrait-feature,
   .motion-tile.landscape-card,
@@ -265,6 +299,22 @@
 
   .motion-copy h3,
   .motion-tile:not(.cover) .motion-copy h3 {
-    font-size: 1.55rem;
+    font-size: 1.28rem;
+    line-height: 1.05;
+  }
+
+  .motion-tile.cover .motion-copy span {
+    display: none;
+  }
+
+  .motion-heading h2 {
+    font-size: clamp(3.4rem, 17vw, 5.2rem);
+    line-height: 0.95;
+  }
+
+  .motion-tile,
+  .motion-tile.cover.landscape-feature,
+  .motion-tile.cover.portrait-feature {
+    --tile-ratio: 4 / 5;
   }
 }
