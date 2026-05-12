@@ -17,9 +17,10 @@ async function loadAlbum() {
 
 function renderAlbum(album) {
   if (!album) return;
-  document.title = `Amy Travel | ${album.title}`;
+  const title = displayTitle(album.title || "Untitled Trip");
+  document.title = `Amy Travel | ${title}`;
   document.querySelector("#albumYear").textContent = album.year || "Travel Book";
-  document.querySelector("#albumTitle").textContent = album.title || "Untitled Trip";
+  document.querySelector("#albumTitle").textContent = title;
   document.querySelector("#albumIntro").textContent = album.intro || "";
   document.querySelector("#albumPhotos").innerHTML = (album.photos || []).map((photo, index) => renderMediaItem(photo, index, album)).join("");
   prepareAlbumVideos(document.querySelectorAll("#albumPhotos video"));
@@ -107,4 +108,8 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function displayTitle(value) {
+  return String(value || "").replace("家拿的的", "加拿大的");
 }
