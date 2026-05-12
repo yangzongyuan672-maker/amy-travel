@@ -13,10 +13,6 @@ body {
   text-rendering: geometricPrecision;
 }
 
-.site-header {
-  min-height: 78px;
-}
-
 .brand {
   font-size: 1.22rem;
   letter-spacing: 0.02em;
@@ -44,7 +40,7 @@ body {
 .cover,
 .album-hero,
 .upload-page {
-  background: #111210;
+  background-color: #111210;
 }
 
 .motion-wall,
