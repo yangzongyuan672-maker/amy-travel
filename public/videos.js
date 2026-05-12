@@ -14,10 +14,23 @@ async function loadVideos() {
 function renderVideos(target, videos) {
   target.innerHTML = videos.map((video, index) => {
     const poster = video.poster ? `poster="${escapeHtml(video.poster)}"` : "";
+    const posterImage = video.poster ? `<img class="motion-poster" src="${escapeHtml(video.poster)}" alt="${escapeHtml(video.title || "旅行影像")}" loading="eager">` : "";
+    const orientation = video.orientation || inferOrientation(video);
+    const width = Number(video.width) || (orientation === "portrait" ? 9 : 16);
+    const height = Number(video.height) || (orientation === "portrait" ? 16 : 9);
+    const title = video.aiTitle || video.caption || `Motion ${String(index + 1).padStart(2, "0")}`;
+    const location = video.location || video.title || "Amy Travel";
+    const note = video.aiNote || [formatVideoDate(video.capturedAt), formatDuration(video.duration)].filter(Boolean).join(" · ");
     return `
-      <article class="motion-tile">
+      <article class="motion-tile ${orientation === "portrait" ? "portrait-card" : "landscape-card"}" data-orientation="${escapeHtml(orientation)}" style="--media-ratio: ${width} / ${height};">
+        ${posterImage}
         <video src="${video.src}" ${poster} muted loop playsinline preload="metadata"></video>
-        <span>${escapeHtml(video.title || `Motion ${String(index + 1).padStart(2, "0")}`)}</span>
+        <div class="motion-shade" aria-hidden="true"></div>
+        <div class="motion-copy">
+          <p>${escapeHtml(location)}</p>
+          <h3>${escapeHtml(title)}</h3>
+          <span>${escapeHtml(note)}</span>
+        </div>
       </article>
     `;
   }).join("");
@@ -51,4 +64,25 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function inferOrientation(video) {
+  const width = Number(video.width) || 1;
+  const height = Number(video.height) || 1;
+  if (width > height * 1.12) return "landscape";
+  if (height > width * 1.12) return "portrait";
+  return "square";
+}
+
+function formatVideoDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10);
+  return date.toLocaleDateString("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/-/g, ".");
+}
+
+function formatDuration(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  return `${Math.max(1, Math.round(seconds))} sec loop`;
 }
