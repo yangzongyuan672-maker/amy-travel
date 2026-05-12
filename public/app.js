@@ -33,10 +33,10 @@ async function loadLibrary() {
 function renderLibrary(library) {
   const albums = sortAlbums((library.albums || fallbackLibrary.albums).filter((album) => album.photos?.length));
   const latest = albums[0] || fallbackLibrary.albums[0];
-  const latestPhoto = latest.photos?.[0]?.src || "/assets/photo-01.svg";
+  const latestPhoto = latest.photos?.find((item) => item.type !== "video")?.src || latest.photos?.[0]?.poster || latest.photos?.[0]?.src || "/assets/photo-01.svg";
   renderMotionWall(library.videos || []);
 
-  document.querySelector("#heroTitle").textContent = latest.title || "Amy Travel";
+  document.querySelector("#heroTitle").textContent = displayTitle(latest.title || "Amy Travel");
   document.querySelector("#heroSubtitle").textContent = latest.intro || fallbackLibrary.albums[0].intro;
   document.querySelector("#tripYear").textContent = latest.year || "2026";
   document.querySelector("#photoCount").textContent = `${String(latest.photos?.length || 0).padStart(2, "0")} photos`;
@@ -48,13 +48,14 @@ function renderLibrary(library) {
 }
 
 function renderAlbumCard(album, index) {
-  const cover = album.photos?.[0]?.src || "/assets/photo-01.svg";
+  const cover = album.photos?.find((item) => item.type !== "video")?.src || album.photos?.[0]?.poster || album.photos?.[0]?.src || "/assets/photo-01.svg";
+  const title = displayTitle(album.title || "Untitled Trip");
   return `
     <a class="album-card ${index === 0 ? "lead" : ""}" href="${albumUrl(album.id)}">
-      <img src="${cover}" alt="${escapeHtml(album.title)}" loading="lazy">
+      <img src="${cover}" alt="${escapeHtml(title)}" loading="lazy">
       <div>
         <p>${escapeHtml(album.year || "Travel")}</p>
-        <h3>${escapeHtml(album.title || "Untitled Trip")}</h3>
+        <h3>${escapeHtml(title)}</h3>
         <span>${album.photos?.length || 0} photographs</span>
       </div>
     </a>
@@ -75,7 +76,7 @@ function renderArchive(albums) {
       <div>
         ${grouped[year].map((album) => `
           <a href="${albumUrl(album.id)}">
-            <strong>${escapeHtml(album.title || "Untitled Trip")}</strong>
+            <strong>${escapeHtml(displayTitle(album.title || "Untitled Trip"))}</strong>
             <small>${album.photos?.length || 0} photographs</small>
           </a>
         `).join("")}
@@ -100,6 +101,7 @@ function renderMotionWall(videos) {
 
 function renderMotionTile(video, index) {
   const poster = video.poster ? `poster="${escapeHtml(video.poster)}"` : "";
+  const posterImage = video.poster ? `<img class="motion-poster" src="${escapeHtml(video.poster)}" alt="${escapeHtml(video.caption || video.title || "旅行影像")}" loading="eager">` : "";
   const orientation = video.orientation || inferOrientation(video);
   const layout = motionLayoutClass(index, orientation);
   const width = Number(video.width) || (orientation === "portrait" ? 9 : 16);
@@ -112,6 +114,7 @@ function renderMotionTile(video, index) {
 
   return `
     <article class="motion-tile ${layout}" data-orientation="${escapeHtml(orientation)}" style="--media-ratio: ${width} / ${height};">
+      ${posterImage}
       <video
         src="${video.src}"
         ${poster}
@@ -220,6 +223,10 @@ function sortAlbums(albums) {
 
 function albumUrl(id) {
   return `album.html?id=${encodeURIComponent(id)}`;
+}
+
+function displayTitle(value) {
+  return String(value || "").replace("家拿的的", "加拿大的");
 }
 
 function escapeHtml(value) {
